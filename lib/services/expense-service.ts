@@ -270,4 +270,127 @@ export class ExpenseService {
       };
     }
   }
+
+  // Add a group expense and reflect it across all member accounts
+  static async addGroupExpenseForAll(
+    groupExpenseData: {
+      group_id: string;
+      expense_id: string;
+      paid_by: string;
+      split_between: string[];
+      amount: number;
+      description: string;
+      date: string;
+    }
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      // First, add the group expense record
+      const groupExpenseResult = await supabase
+        .from('group_expenses')
+        .insert(groupExpenseData)
+        .select()
+        .single();
+
+      if (groupExpenseResult.error) {
+        throw groupExpenseResult.error;
+      }
+
+      // Calculate each person's share
+      const splitAmount = groupExpenseData.amount / groupExpenseData.split_between.length;
+
+      // Create individual expense records for each member
+      const expensePromises = groupExpenseData.split_between.map(async (userId) => {
+        const isPayer = userId === groupExpenseData.paid_by;
+        
+        const expenseData: ExpenseInsert = {
+          user_id: userId,
+          description: `${groupExpenseData.description} (Group Expense)`,
+          amount: isPayer ? groupExpenseData.amount : splitAmount,
+          category: 'shared',
+          merchant: 'Group Expense',
+          date: groupExpenseData.date,
+          is_shared: true,
+          group_id: groupExpenseData.group_id,
+        };
+
+        const { error } = await supabase
+          .from('expenses')
+          .insert(expenseData);
+
+        if (error) {
+          console.error(`Failed to create expense for user ${userId}:`, error);
+          return null;
+        }
+
+        return { userId, success: true };
+      });
+
+      const results = await Promise.all(expensePromises);
+
+      return { 
+        success: true, 
+        data: {
+          groupExpense: groupExpenseResult.data,
+          individualExpenses: results
+        }
+      };
+    } catch (error: any) {
+      console.error('Add group expense for all error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to add group expense' 
+      };
+    }
+  }
+
+  // Get expenses for a specific group
+  static async getGroupExpenses(
+    groupId: string
+  ): Promise<{ success: boolean; data?: any[]; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('group_id', groupId)
+        .order('date', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, data };
+    } catch (error: any) {
+      console.error('Get group expenses error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to get group expenses' 
+      };
+    }
+  }
+
+  // Get shared expenses for a user (expenses from groups they're part of)
+  static async getSharedExpenses(
+    userId: string
+  ): Promise<{ success: boolean; data?: Expense[]; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_shared', true)
+        .order('date', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, data };
+    } catch (error: any) {
+      console.error('Get shared expenses error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to get shared expenses' 
+      };
+    }
+  }
 }

@@ -1,6 +1,7 @@
 import React, { createContext, ReactNode, useContext, useEffect, useReducer } from 'react';
 import { AppState } from 'react-native';
 import { authService, AuthState } from '../lib/auth';
+import { ProfileService } from '../lib/services/profile-service';
 import { realtimeManager } from '../lib/supabase';
 
 // App state types
@@ -154,13 +155,31 @@ export function AppProvider({ children }: AppProviderProps) {
     },
 
     refreshUserProfile: async () => {
-      const userId = await authService.getCurrentUser();
-      if (userId.success && userId.user) {
-        // TODO: Fetch user profile from ProfileService
-        // const profileResult = await ProfileService.getProfile(userId.user.id);
-        // if (profileResult.success && profileResult.data) {
-        //   dispatch({ type: 'SET_USER_PROFILE', payload: profileResult.data });
-        // }
+      const userResult = await authService.getCurrentUser();
+      if (userResult.success && userResult.user) {
+        const profileResult = await ProfileService.getProfile(userResult.user.id);
+        if (profileResult.success && profileResult.data) {
+          dispatch({ type: 'SET_USER_PROFILE', payload: profileResult.data });
+        } else {
+          // Create profile if it doesn't exist
+          const userData = userResult.user;
+          const metadata = userData.user_metadata || {};
+          await ProfileService.upsertProfile(userData.id, {
+            user_id: userData.id,
+            full_name: metadata.full_name || userData.email?.split('@')[0] || 'User',
+            email: userData.email || '',
+            student_id: metadata.student_id || '',
+            user_type: 'student_private',
+            location: 'other',
+            household_size: 1,
+          });
+          
+          // Try to fetch again
+          const retryResult = await ProfileService.getProfile(userData.id);
+          if (retryResult.success && retryResult.data) {
+            dispatch({ type: 'SET_USER_PROFILE', payload: retryResult.data });
+          }
+        }
       }
     },
 

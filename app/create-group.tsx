@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
@@ -9,28 +9,71 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/app-context';
 import { GroupService } from '@/lib/services/group-service';
-import { validateGroupData } from '@/utils/groupCalculations';
+import { ProfileService } from '@/lib/services/profile-service';
+
+interface SearchResult {
+  id: string;
+  user_id: string;
+  full_name: string;
+  email: string;
+  student_id: string;
+}
+
+interface AddedMember {
+  user_id: string;
+  full_name: string;
+  email: string;
+}
 
 export default function CreateGroupScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [groupName, setGroupName] = useState('');
-  const [memberName, setMemberName] = useState('');
-  const [members, setMembers] = useState<string[]>(['You']);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [addedMembers, setAddedMembers] = useState<AddedMember[]>([]);
   const [creating, setCreating] = useState(false);
+  const [searching, setSearching] = useState(false);
 
-  const addMember = () => {
-    if (memberName.trim() && !members.includes(memberName.trim())) {
-      setMembers([...members, memberName.trim()]);
-      setMemberName('');
+  // Search for users
+  useEffect(() => {
+    const searchUsers = async () => {
+      if (searchQuery.trim().length >= 2 && user) {
+        setSearching(true);
+        const result = await ProfileService.searchUsers(searchQuery, user.id);
+        if (result.success && result.data) {
+          // Filter out already added members
+          const filteredResults = result.data.filter(
+            (result: SearchResult) => !addedMembers.find(m => m.user_id === result.user_id)
+          );
+          setSearchResults(filteredResults);
+        } else {
+          setSearchResults([]);
+        }
+        setSearching(false);
+      } else {
+        setSearchResults([]);
+      }
+    };
+
+    const timeoutId = setTimeout(searchUsers, 500); // Debounce search
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, user, addedMembers]);
+
+  const addMember = (searchResult: SearchResult) => {
+    if (!addedMembers.find(m => m.user_id === searchResult.user_id)) {
+      setAddedMembers([...addedMembers, {
+        user_id: searchResult.user_id,
+        full_name: searchResult.full_name,
+        email: searchResult.email,
+      }]);
+      setSearchQuery('');
+      setSearchResults([]);
     }
   };
 
-  const removeMember = (index: number) => {
-    if (index !== 0) { // Don't remove "You"
-      setMembers(members.filter((_, i) => i !== index));
-    }
+  const removeMember = (userId: string) => {
+    setAddedMembers(addedMembers.filter(m => m.user_id !== userId));
   };
 
   const createGroup = async () => {
@@ -39,10 +82,13 @@ export default function CreateGroupScreen() {
       return;
     }
 
-    const validation = validateGroupData(groupName, members);
-    
-    if (!validation.isValid) {
-      Alert.alert('Error', validation.error || 'Please check your input');
+    if (!groupName.trim()) {
+      Alert.alert('Error', 'Please enter a group name');
+      return;
+    }
+
+    if (addedMembers.length === 0) {
+      Alert.alert('Error', 'Please add at least one member to the group');
       return;
     }
 
@@ -53,6 +99,7 @@ export default function CreateGroupScreen() {
         {
           name: groupName,
           description: `Group created by ${user.email || 'user'}`,
+          created_by: user.id,
         },
         user.id
       );
@@ -63,20 +110,18 @@ export default function CreateGroupScreen() {
 
       const groupId = groupResult.data.id;
 
-      // Add creator as admin member
-      const memberResult = await GroupService.addGroupMember(
-        groupId,
-        user.id,
-        'admin'
-      );
-
-      if (!memberResult.success) {
-        console.warn('Warning: Could not add creator as member:', memberResult.error);
+      // Add all members (creator is already added as admin in createGroup)
+      const memberIds = addedMembers.map(m => m.user_id);
+      if (memberIds.length > 0) {
+        const membersResult = await GroupService.addGroupMembers(groupId, memberIds, 'member');
+        if (!membersResult.success) {
+          console.warn('Warning: Could not add all members:', membersResult.error);
+        }
       }
 
       Alert.alert(
         'Success', 
-        `Group "${groupName}" created successfully!`,
+        `Group "${groupName}" created successfully with ${addedMembers.length + 1} member(s)!`,
         [
           { 
             text: 'OK', 
@@ -95,10 +140,6 @@ export default function CreateGroupScreen() {
     }
   };
 
-  const goBack = () => {
-    router.push('/(tabs)/groups');
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -113,50 +154,75 @@ export default function CreateGroupScreen() {
             placeholder="Enter group name"
             value={groupName}
             onChangeText={setGroupName}
-            error={errors.groupName}
           />
           
-          <ThemedText style={styles.sectionTitle}>Members</ThemedText>
+          <ThemedText style={styles.sectionTitle}>Add Members</ThemedText>
+          
+          <Input
+            placeholder="Search by email or name"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            containerStyle={styles.searchInput}
+          />
+          
+          {searching && (
+            <ThemedText style={styles.searchingText}>Searching...</ThemedText>
+          )}
+          
+          {searchResults.length > 0 && (
+            <View style={styles.searchResults}>
+              <ThemedText style={styles.resultsTitle}>Search Results:</ThemedText>
+              {searchResults.map((result) => (
+                <TouchableOpacity
+                  key={result.user_id}
+                  style={styles.searchResultItem}
+                  onPress={() => addMember(result)}
+                >
+                  <View style={styles.resultInfo}>
+                    <IconSymbol size={20} name="person.2.fill" color="#0066CC" />
+                    <View>
+                      <ThemedText style={styles.resultName}>{result.full_name}</ThemedText>
+                      <ThemedText style={styles.resultEmail}>{result.email}</ThemedText>
+                    </View>
+                  </View>
+                  <IconSymbol size={20} name="plus.circle.fill" color="#10B981" />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+          
+          <ThemedText style={styles.sectionTitle}>Added Members</ThemedText>
           
           <View style={styles.membersList}>
-            {members.map((member, index) => (
-              <View key={index} style={styles.memberItem}>
+            <View style={styles.memberItem}>
+              <View style={styles.memberInfo}>
+                <IconSymbol size={20} name="person.fill" color="#0066CC" />
+                <ThemedText style={styles.memberName}>{user?.email || 'You'} (Creator)</ThemedText>
+              </View>
+            </View>
+            
+            {addedMembers.map((member) => (
+              <View key={member.user_id} style={styles.memberItem}>
                 <View style={styles.memberInfo}>
-                  <IconSymbol 
-                    size={20} 
-                    name={index === 0 ? 'person.fill' : 'person.2.fill'} 
-                    color="#0066CC" 
-                  />
-                  <ThemedText style={styles.memberName}>{member}</ThemedText>
+                  <IconSymbol size={20} name="person.2.fill" color="#0066CC" />
+                  <View>
+                    <ThemedText style={styles.memberName}>{member.full_name}</ThemedText>
+                    <ThemedText style={styles.memberEmail}>{member.email}</ThemedText>
+                  </View>
                 </View>
-                {index !== 0 && (
-                  <Button
-                    title=""
-                    onPress={() => removeMember(index)}
-                    variant="ghost"
-                    size="small"
-                    icon={<IconSymbol size={16} name="xmark.circle.fill" color="#EF4444" />}
-                  />
-                )}
+                <Button
+                  title=""
+                  onPress={() => removeMember(member.user_id)}
+                  variant="ghost"
+                  size="small"
+                  icon={<IconSymbol size={16} name="xmark.circle.fill" color="#EF4444" />}
+                />
               </View>
             ))}
-          </View>
-          
-          <View style={styles.addMemberSection}>
-            <Input
-              placeholder="Add member name"
-              value={memberName}
-              onChangeText={setMemberName}
-              onSubmitEditing={addMember}
-              containerStyle={styles.memberInput}
-            />
-            <Button
-              title="Add"
-              onPress={addMember}
-              variant="outline"
-              size="small"
-              style={styles.addButton}
-            />
+            
+            {addedMembers.length === 0 && (
+              <ThemedText style={styles.noMembersText}>No members added yet</ThemedText>
+            )}
           </View>
         </Card>
         
@@ -165,7 +231,7 @@ export default function CreateGroupScreen() {
           onPress={createGroup}
           size="large"
           style={styles.createButton}
-          disabled={!groupName.trim() || members.length < 2 || creating}
+          disabled={!groupName.trim() || creating}
         />
       </ScrollView>
     </View>
@@ -210,6 +276,49 @@ const styles = StyleSheet.create({
     marginTop: 20,
     color: '#FFFFFF',
   },
+  searchInput: {
+    marginBottom: 10,
+  },
+  searchingText: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 10,
+  },
+  searchResults: {
+    marginBottom: 15,
+  },
+  resultsTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#FFFFFF',
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: '#2A2A2A',
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#404040',
+  },
+  resultInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  resultName: {
+    fontSize: 16,
+    marginLeft: 8,
+    color: '#FFFFFF',
+  },
+  resultEmail: {
+    fontSize: 12,
+    marginLeft: 8,
+    color: '#888',
+  },
   membersList: {
     marginBottom: 15,
   },
@@ -234,16 +343,16 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     color: '#FFFFFF',
   },
-  addMemberSection: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 10,
+  memberEmail: {
+    fontSize: 12,
+    marginLeft: 8,
+    color: '#888',
   },
-  memberInput: {
-    flex: 1,
-  },
-  addButton: {
-    marginBottom: 20,
+  noMembersText: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    padding: 20,
   },
   createButton: {
     marginTop: 10,

@@ -2,6 +2,13 @@
 
 A React Native + Expo mobile application for budget tracking, expense management, and group expense sharing. Built with Supabase backend.
 
+## Recent Updates
+- **Infrastructure fixes**: Resolved routing errors, import issues, and service configuration problems
+- **Code quality**: Fixed TypeScript errors, reduced lint warnings from 41 to 33 (0 errors)
+- **Service improvements**: Added missing service functions and fixed AsyncStorage configuration
+- **Navigation**: Fixed route structure and removed invalid route references
+- **Schema fixes**: Added missing budget fields to user_preferences table, created migration script
+
 ## Features
 
 ### Core Features (Working ✅)
@@ -13,13 +20,7 @@ A React Native + Expo mobile application for budget tracking, expense management
 - **Suggested Budget** - AI-powered budget recommendations based on profile
 
 ### Features In Progress (Needs Connection 🔧)
-- **Add Expense** - UI complete, needs Supabase connection
-- **Budget Settings** - UI complete, needs Supabase connection  
-- **Edit Profile** - UI complete, needs Supabase connection
-- **Preferences** - UI complete, needs Supabase connection
-- **Shared Expenses** - UI complete, needs Supabase connection
-- **Groups** - View working, RLS policy bug needs fixing
-- **Grocery Shopping** - UI complete, needs Supabase connection
+- **Grocery Shopping** - UI complete, needs major state management refactoring to connect to GroceryService
 
 ### Features Not Started
 - **Notifications** - Framework ready, not implemented
@@ -90,6 +91,8 @@ myApp/
 ### Setup
 Run `supabase-schema.sql` in your Supabase SQL Editor to create all tables and policies.
 
+**Important**: If you already have the schema installed, run `migration-add-budget-preferences.sql` to add missing budget-specific fields (`currency`, `budget_alerts`, `auto_categorize`, `monthly_budget`) to the `user_preferences` table.
+
 ## Setup Instructions
 
 ### 1. Install Dependencies
@@ -136,31 +139,61 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 ### 4. Start Development Server
 ```bash
 npx expo start
-# or with cleared cache:
+# or with cleared cache (recommended after changes):
 npx expo start --clear
+# or manually clear cache:
+rm -rf node_modules/.cache
+npx expo start
 ```
+
+**Note**: If you encounter routing warnings or bundling errors, clear the Metro bundler cache with `npx expo start --clear`.
 
 ## Current Status
 
 ### Working ✅
 - User authentication (sign up/in)
 - Dashboard with budget overview
-- Profile viewing
+- Profile viewing and editing (connected to ProfileService)
 - Budget categories display
+- Budget settings (connected to BudgetService)
+- Add expense (connected to ExpenseService)
 - Onboarding flow
 - Suggested budget generation
+- User preferences (connected to BudgetService)
+- Shared expenses (connected to GroupService)
+- Groups view and management (connected to GroupService)
+- Service infrastructure (all CRUD operations implemented)
+- Proper navigation structure (routes fixed)
 
-### Needs Fixing 🔧
-1. **Group RLS Policy** - Infinite recursion error (SQL fix provided above)
-2. **Add Expense** - Uses mock groups, not saving to database
-3. **Budget Settings** - Hardcoded values, not saving to database
-4. **Edit Profile** - Hardcoded values, not saving to database
-5. **Preferences** - Hardcoded values, not saving to database
-6. **Shared Expenses** - Not connected to group-service
-7. **Grocery** - Not connected to grocery-service
+### Recently Fixed 🔧
+- **Database Connection Integration**:
+  - Add Expense now properly calls ExpenseService.addExpense()
+  - Budget Settings now saves to BudgetService.upsertUserPreferences()
+  - Edit Profile now saves to ProfileService.upsertProfile()
+  - Preferences now saves to BudgetService
+  - Shared Expenses now uses GroupService.addGroupExpense()
+  - Groups view improved with real database data
+- **Infrastructure Issues Resolved**:
+  - Fixed routing errors (removed invalid "grocery" route reference)
+  - Fixed AsyncStorage configuration (removed problematic dependency)
+  - Added missing service functions (`getUserPreferences`, `searchUsers`)
+  - Fixed import/export errors across multiple files
+  - Resolved TypeScript type errors
+  - Added missing React hooks imports (`useEffect`, `useCallback`)
+  - Extended icon mapping (added `star.fill` for admin badges)
+  - Fixed duplicate variable declarations
+- **Schema Issues Resolved**:
+  - Added missing budget fields to user_preferences table (`currency`, `budget_alerts`, `auto_categorize`, `monthly_budget`)
+  - Created migration script for existing databases
+  - Fixed service method signatures to match database operations
+- **Lint Status**: 0 errors, 33 warnings (warnings are minor unused variables in other files)
+
+### Needs Database Connection 🔧
+The following feature requires major state management overhaul:
+1. **Grocery Shopping** - UI complete but uses mock data, requires significant refactoring to connect to GroceryService (shopping list state management, trip creation, price recording, etc.)
 
 ### Todo List
-See todo tracking for detailed remaining tasks.
+Grocery Shopping feature requires major refactoring to implement proper database integration with state management across shopping screens.
 
 ## Navigation Flow
 
@@ -199,12 +232,14 @@ All services return `{ success: boolean, data?: T, error?: string }`:
 // Profile
 ProfileService.getProfile(userId)
 ProfileService.upsertProfile(profileData)
+ProfileService.searchUsers(query, currentUserId)
 
 // Budget
 BudgetService.getBudgetCategories(userId, month, year)
 BudgetService.upsertBudgetCategory(categoryData)
-BudgetService.getUserPreferences(userId)
+BudgetService.getUserPreferences(userId) // ✅ Recently added
 BudgetService.upsertUserPreferences(preferences)
+BudgetService.getBudgetOverview(userId, month, year)
 
 // Expenses
 ExpenseService.getExpenses(userId, limit, offset)
@@ -214,22 +249,39 @@ ExpenseService.deleteExpense(expenseId)
 
 // Groups
 GroupService.getUserGroups(userId)
-GroupService.createGroup(groupData)
+GroupService.getGroupDetails(groupId)
+GroupService.createGroup(groupData, userId) // ✅ Fixed to include created_by
 GroupService.addGroupMember(groupId, userId, role)
+GroupService.addGroupMembers(groupId, userIds, role)
 GroupService.createGroupExpense(expenseData)
 
 // Grocery
 GroceryService.getGroceryItems()
+GroceryService.searchGroceryItems(query)
 GroceryService.createTrip(tripData)
+GroceryService.getUserTrips(userId)
+GroceryService.getTripDetails(tripId)
 GroceryService.addItemToTrip(tripId, itemId, price, quantity)
+GroceryService.removeItemFromTrip(tripId, itemId)
+GroceryService.completeTrip(tripId)
 ```
 
 ## Troubleshooting
 
-### Metro bundler issues
+### Metro bundler cache issues
+If you experience routing warnings, bundling errors, or stale code:
 ```bash
 npx expo start --clear
+# or manually:
+rm -rf node_modules/.cache
+npx expo start
 ```
+
+### Common errors
+- **"No route named 'grocery' exists"** - Clear Metro cache with `npx expo start --clear`
+- **"Network request failed"** - Check Supabase URL and anon key in `.env.local`
+- **TypeScript/Import errors** - Run `npm run lint` to identify specific issues
+- **AsyncStorage errors** - Fixed in recent updates, ensure cache is cleared
 
 ### Supabase connection issues
 - Check `.env.local` variables

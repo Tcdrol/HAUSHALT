@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link , useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
@@ -9,7 +9,6 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/app-context';
 import { validateEmail, validateName, validatePassword } from '@/utils/validation';
-import { useRouter } from 'expo-router';
 
 export default function SignUpScreen() {
   const router = useRouter();

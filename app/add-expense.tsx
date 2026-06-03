@@ -84,7 +84,7 @@ export default function AddExpenseScreen() {
         user_id: user.id,
         description: parsed.merchant || description,
         amount: parsed.amount,
-        category: category.id,
+        category: category.name,
         merchant: parsed.merchant || 'Unknown',
         date: new Date().toISOString().split('T')[0],
         is_shared: isShared,
@@ -150,19 +150,19 @@ export default function AddExpenseScreen() {
             <View style={styles.examples}>
               <View style={styles.exampleItem}>
                 <IconSymbol size={16} name="phone.fill" color="#8B5CF6" />
-                <ThemedText style={styles.example}>"MTN 100" → Airtime</ThemedText>
+                <ThemedText style={styles.example}>&quot;MTN 100&quot; → Airtime</ThemedText>
               </View>
               <View style={styles.exampleItem}>
                 <IconSymbol size={16} name="bolt.fill" color="#EF4444" />
-                <ThemedText style={styles.example}>"ZESCO 200" → Electricity</ThemedText>
+                <ThemedText style={styles.example}>&quot;ZESCO 200&quot; → Electricity</ThemedText>
               </View>
               <View style={styles.exampleItem}>
                 <IconSymbol size={16} name="car.fill" color="#F59E0B" />
-                <ThemedText style={styles.example}>"Kombi 10" → Transport</ThemedText>
+                <ThemedText style={styles.example}>&quot;Kombi 10&quot; → Transport</ThemedText>
               </View>
               <View style={styles.exampleItem}>
                 <IconSymbol size={16} name="cart.fill" color="#10B981" />
-                <ThemedText style={styles.example}>"Shoprite 350" → Groceries</ThemedText>
+                <ThemedText style={styles.example}>&quot;Shoprite 350&quot; → Groceries</ThemedText>
               </View>
             </View>
           </View>

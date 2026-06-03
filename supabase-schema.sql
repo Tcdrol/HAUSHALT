@@ -152,6 +152,10 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   budget_reminders BOOLEAN DEFAULT TRUE,
   price_alerts BOOLEAN DEFAULT TRUE,
   group_updates BOOLEAN DEFAULT TRUE,
+  currency TEXT NOT NULL DEFAULT 'ZMW',
+  budget_alerts BOOLEAN DEFAULT TRUE,
+  auto_categorize BOOLEAN DEFAULT TRUE,
+  monthly_budget DECIMAL(10,2) DEFAULT 2000,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(user_id)

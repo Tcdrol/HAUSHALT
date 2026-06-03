@@ -62,20 +62,25 @@ export default function BudgetSettingsScreen() {
     setSaving(true);
     try {
       // Save preferences
-      const prefResult = await BudgetService.upsertUserPreferences({
-        user_id: user.id,
-        currency,
-        budget_alerts: budgetAlerts,
-        auto_categorize: autoCategorize,
-        default_location: 'kitwe',
-        monthly_budget: parseFloat(monthlyIncome) || 2000,
-      });
+      const prefResult = await BudgetService.upsertUserPreferences(
+        user.id,
+        {
+          user_id: user.id,
+          currency,
+          budget_alerts: budgetAlerts,
+          auto_categorize: autoCategorize,
+          default_location: 'kitwe',
+          monthly_budget: parseFloat(monthlyIncome) || 2000,
+        }
+      );
 
       // Save monthly income to profile
-      const profileResult = await ProfileService.upsertProfile({
-        user_id: user.id,
-        monthly_income: parseFloat(monthlyIncome) || 2000,
-      });
+      const profileResult = await ProfileService.upsertProfile(
+        user.id,
+        {
+          monthly_income: parseFloat(monthlyIncome) || 2000,
+        }
+      );
 
       if (prefResult.success && profileResult.success) {
         Alert.alert(
@@ -160,7 +165,7 @@ export default function BudgetSettingsScreen() {
               <View style={styles.toggleContent}>
                 <ThemedText style={styles.toggleLabel}>Budget Alerts</ThemedText>
                 <ThemedText style={styles.toggleDescription}>
-                  Get notified when you're close to budget limits
+                  Get notified when you&apos;re close to budget limits
                 </ThemedText>
               </View>
               <View style={[styles.toggleSwitch, budgetAlerts && styles.toggleSwitchOn]} />

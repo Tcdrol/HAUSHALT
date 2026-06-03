@@ -1,8 +1,7 @@
 // Fallback for using MaterialIcons on Android and web.
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { SymbolWeight, SymbolViewProps } from 'expo-symbols';
-import { ComponentProps } from 'react';
+import { SymbolWeight } from 'expo-symbols';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
 // Extend the mapping to include our custom icons
@@ -50,6 +49,7 @@ const EXTENDED_MAPPING = {
   'trash.fill': 'delete',
   'mail.fill': 'email',
   'chat.fill': 'chat',
+  'star.fill': 'star',
 } as const;
 
 type IconSymbolName = keyof typeof EXTENDED_MAPPING;

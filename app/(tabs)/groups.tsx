@@ -25,30 +25,18 @@ export default function GroupsScreen() {
   }, [user]);
 
   const loadGroups = async () => {
+    setLoading(true);
     try {
       const result = await GroupService.getUserGroups(user.id);
       if (result.success && result.data) {
         setGroups(result.data);
+      } else {
+        console.error('Failed to load groups:', result.error);
+        setGroups([]);
       }
     } catch (error) {
       console.error('Error loading groups:', error);
-      // Keep mock data as fallback
-      setGroups([
-        {
-          id: '1',
-          name: 'Diggers Lodge',
-          members: '4 members • Active',
-          balance: 'You owe K125',
-          status: 'active',
-        },
-        {
-          id: '2',
-          name: 'CS Study Group',
-          members: '3 members • Active',
-          balance: 'All settled',
-          status: 'settled',
-        },
-      ]);
+      setGroups([]);
     } finally {
       setLoading(false);
     }
@@ -59,7 +47,14 @@ export default function GroupsScreen() {
   };
 
   const handleViewGroup = (groupId: string) => {
-    router.push(`/group-detail?id=${groupId}`);
+    router.push(`/group-detail?groupId=${groupId}`);
+  };
+
+  const getGroupMembers = (group: any) => {
+    if (group.group_members && group.group_members.length > 0) {
+      return `${group.group_members.length} member${group.group_members.length > 1 ? 's' : ''}`;
+    }
+    return 'No members';
   };
 
   return (
@@ -81,43 +76,42 @@ export default function GroupsScreen() {
             <ThemedText style={styles.loadingText}>Loading groups...</ThemedText>
           </View>
         ) : (
-          groups.map((group) => (
-            <Card key={group.id} style={styles.groupCard}>
-              <View style={styles.groupHeader}>
-                <View style={styles.groupInfo}>
-                  <ThemedText style={styles.groupName}>{group.name}</ThemedText>
-                  <ThemedText style={styles.groupMembers}>{group.members}</ThemedText>
-                </View>
-                <IconSymbol 
-                  size={24} 
-                  name={group.status === 'active' ? 'person.2.fill' : 
-                        group.status === 'settled' ? 'checkmark.circle.fill' : 
-                        'clock.fill'} 
-                  color={group.status === 'active' ? '#0066CC' : 
-                       group.status === 'settled' ? '#10B981' : '#666'} 
-                />
-              </View>
-              
-              <ThemedText style={[
-                styles.groupBalance,
-                group.status === 'active' && styles.owesText,
-                group.status === 'settled' && styles.settledText,
-                group.status === 'completed' && styles.completedText
-              ]}>
-                {group.balance}
+          groups.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <IconSymbol size={48} name="person.2.fill" color="#666" />
+              <ThemedText style={styles.emptyText}>No groups yet</ThemedText>
+              <ThemedText style={styles.emptySubtext}>
+                Create a group to start sharing expenses
               </ThemedText>
-              
-              {group.status !== 'completed' && (
+            </View>
+          ) : (
+            groups.map((group) => (
+              <Card key={group.id} style={styles.groupCard}>
+                <View style={styles.groupHeader}>
+                  <View style={styles.groupInfo}>
+                    <ThemedText style={styles.groupName}>{group.name}</ThemedText>
+                    <ThemedText style={styles.groupMembers}>{getGroupMembers(group)}</ThemedText>
+                    {group.description && (
+                      <ThemedText style={styles.groupDescription}>{group.description}</ThemedText>
+                    )}
+                  </View>
+                  <IconSymbol 
+                    size={24} 
+                    name="chevron.right" 
+                    color="#0066CC" 
+                  />
+                </View>
+                
                 <Button
-                  title="View Details →"
+                  title="View Group"
                   onPress={() => handleViewGroup(group.id)}
                   variant="outline"
                   size="small"
                   style={styles.viewButton}
                 />
-              )}
-            </Card>
-          ))
+              </Card>
+            ))
+          )
         )}
       </ThemedView>
     </ScrollView>
@@ -170,23 +164,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.8,
     color: '#FFFFFF',
+    marginBottom: 5,
   },
-  groupBalance: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 15,
-  },
-  owesText: {
-    color: '#EF4444',
-  },
-  settledText: {
-    color: '#10B981',
-  },
-  completedText: {
-    color: '#666',
+  groupDescription: {
+    fontSize: 13,
+    opacity: 0.6,
+    color: '#FFFFFF',
   },
   viewButton: {
     marginTop: 'auto',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    color: '#FFFFFF',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    opacity: 0.6,
+    marginTop: 10,
+    textAlign: 'center',
+    color: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,

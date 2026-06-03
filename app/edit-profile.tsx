@@ -70,15 +70,17 @@ export default function EditProfileScreen() {
 
     setSaving(true);
     try {
-      const result = await ProfileService.upsertProfile({
-        user_id: user.id,
-        full_name: formData.fullName,
-        email: formData.email,
-        student_id: formData.studentId,
-        user_type: formData.userType,
-        location: formData.location,
-        household_size: formData.householdSize,
-      });
+      const result = await ProfileService.upsertProfile(
+        user.id,
+        {
+          full_name: formData.fullName,
+          email: formData.email,
+          student_id: formData.studentId,
+          user_type: formData.userType as 'student_hostel' | 'student_private' | 'professional' | 'sharing_roommates',
+          location: formData.location as 'kitwe' | 'lusaka' | 'other',
+          household_size: formData.householdSize,
+        }
+      );
 
       if (result.success) {
         Alert.alert(

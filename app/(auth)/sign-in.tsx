@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link , useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/app-context';
-import { useRouter } from 'expo-router';
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -100,7 +99,7 @@ export default function SignInScreen() {
         
         <View style={styles.signUpSection}>
           <ThemedText style={styles.signUpText}>
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
           </ThemedText>
           <Link href="/(auth)/sign-up">
             <ThemedText type="link">Sign up</ThemedText>

@@ -86,19 +86,43 @@ export default function AddSharedExpenseScreen() {
 
     setSaving(true);
     try {
-      // Save to Supabase
-      const expenseData = {
+      // First, create the master expense for the payer
+      const masterExpenseData = {
         user_id: user.id,
         description: parsed.merchant || description,
         amount: parsed.amount,
-        category: category.id,
+        category: category.name,
         merchant: parsed.merchant || 'Unknown',
         date: new Date().toISOString().split('T')[0],
         is_shared: true,
         group_id: selectedGroupId,
       };
 
-      const result = await ExpenseService.addExpense(expenseData);
+      const masterExpenseResult = await ExpenseService.addExpense(masterExpenseData);
+      
+      if (!masterExpenseResult.success || !masterExpenseResult.data) {
+        Alert.alert('Error', masterExpenseResult.error || 'Failed to create master expense');
+        return;
+      }
+
+      // Check if group is selected
+      if (!selectedGroupId) {
+        Alert.alert('Error', 'Please select a group');
+        return;
+      }
+
+      // Then, create the group expense using the master expense ID
+      const groupExpenseData = {
+        group_id: selectedGroupId,
+        expense_id: masterExpenseResult.data.id,
+        description: parsed.merchant || description,
+        amount: parsed.amount,
+        paid_by: user.id,
+        split_between: members.map(m => m === 'You' ? user.id : m), // In real implementation, would map member names to IDs
+        date: new Date().toISOString().split('T')[0],
+      };
+
+      const result = await GroupService.addGroupExpense(groupExpenseData);
       
       if (result.success) {
         Alert.alert(
@@ -156,19 +180,19 @@ export default function AddSharedExpenseScreen() {
             <View style={styles.examples}>
               <View style={styles.exampleItem}>
                 <IconSymbol size={16} name="phone.fill" color="#8B5CF6" />
-                <ThemedText style={styles.example}>"MTN 100" → Airtime</ThemedText>
+                <ThemedText style={styles.example}>&quot;MTN 100&quot; → Airtime</ThemedText>
               </View>
               <View style={styles.exampleItem}>
                 <IconSymbol size={16} name="bolt.fill" color="#EF4444" />
-                <ThemedText style={styles.example}>"ZESCO 200" → Electricity</ThemedText>
+                <ThemedText style={styles.example}>&quot;ZESCO 200&quot; → Electricity</ThemedText>
               </View>
               <View style={styles.exampleItem}>
                 <IconSymbol size={16} name="car.fill" color="#F59E0B" />
-                <ThemedText style={styles.example}>"Kombi 10" → Transport</ThemedText>
+                <ThemedText style={styles.example}>&quot;Kombi 10&quot; → Transport</ThemedText>
               </View>
               <View style={styles.exampleItem}>
                 <IconSymbol size={16} name="cart.fill" color="#10B981" />
-                <ThemedText style={styles.example}>"Shoprite 350" → Groceries</ThemedText>
+                <ThemedText style={styles.example}>&quot;Shoprite 350&quot; → Groceries</ThemedText>
               </View>
             </View>
           </View>

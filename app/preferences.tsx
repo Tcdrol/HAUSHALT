@@ -59,16 +59,19 @@ export default function PreferencesScreen() {
 
     setSaving(true);
     try {
-      const result = await BudgetService.upsertUserPreferences({
-        user_id: user.id,
-        default_location: defaultLocation,
-        default_store: defaultStore,
-        theme,
-        language,
-        budget_reminders: budgetReminders,
-        price_alerts: priceAlerts,
-        group_updates: groupUpdates,
-      });
+      const result = await BudgetService.upsertUserPreferences(
+        user.id,
+        {
+          user_id: user.id,
+          default_location: defaultLocation,
+          default_store: defaultStore,
+          theme,
+          language,
+          budget_reminders: budgetReminders,
+          price_alerts: priceAlerts,
+          group_updates: groupUpdates,
+        }
+      );
 
       if (result.success) {
         Alert.alert(

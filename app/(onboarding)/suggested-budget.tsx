@@ -193,7 +193,7 @@ export default function SuggestedBudgetScreen() {
             • Adjust categories as needed based on your actual spending
           </ThemedText>
           <ThemedText style={styles.tipText}>
-            • Set up alerts to notify when you're approaching limits
+            • Set up alerts to notify when you&apos;re approaching limits
           </ThemedText>
         </View>
         

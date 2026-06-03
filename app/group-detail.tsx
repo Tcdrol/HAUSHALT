@@ -1,78 +1,127 @@
-import { useRouter } from 'expo-router';
-import { StyleSheet, View, ScrollView, TouchableOpacity } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAuth } from '@/contexts/app-context';
+import { GroupService } from '@/lib/services/group-service';
 
 export default function GroupDetailScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const { groupId } = useLocalSearchParams();
   
-  const members = ['TC (you)', 'Christopher', 'Niza', 'Thandiwe'];
-  
-  const expenses = [
-    {
-      id: '1',
-      name: 'ZESCO',
-      amount: 'K500',
-      paidBy: 'TC',
-      eachOwes: 'K125',
-      payments: [
-        { name: 'Christopher', status: 'paid' },
-        { name: 'Niza', status: 'pending' },
-        { name: 'Thandiwe', status: 'pending' },
-      ]
-    },
-    {
-      id: '2',
-      name: 'Water',
-      amount: 'K300',
-      paidBy: 'Christopher',
-      eachOwes: 'K75',
-      youOwe: 'K75',
+  const [groupData, setGroupData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadGroupData = useCallback(async () => {
+    if (!groupId || typeof groupId !== 'string') {
+      setError('Invalid group ID');
+      setLoading(false);
+      return;
     }
-  ];
+
+    try {
+      const result = await GroupService.getGroupDetails(groupId);
+      if (result.success && result.data) {
+        setGroupData(result.data);
+      } else {
+        setError(result.error || 'Failed to load group data');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to load group data');
+    } finally {
+      setLoading(false);
+    }
+  }, [groupId]);
+
+  useEffect(() => {
+    loadGroupData();
+  }, [loadGroupData]);
 
   const goBack = () => {
     router.push('/(tabs)/groups');
   };
 
   const addExpense = () => {
-    router.push('/add-shared-expense');
+    router.push(`/add-shared-expense?groupId=${groupId}`);
   };
 
   const settleUp = () => {
-    router.push('/settle-up');
+    router.push(`/settle-up?groupId=${groupId}`);
   };
 
-  const getPaymentIcon = (status: string) => {
-    switch (status) {
-      case 'paid':
-        return 'checkmark.circle.fill';
-      case 'pending':
-        return 'clock.fill';
-      default:
-        return 'circle.fill';
-    }
-  };
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <ThemedText style={styles.title}>Loading...</ThemedText>
+          <View style={styles.placeholder} />
+        </View>
+        <View style={styles.centerContainer}>
+          <ThemedText>Loading group data...</ThemedText>
+        </View>
+      </View>
+    );
+  }
 
-  const getPaymentColor = (status: string) => {
-    switch (status) {
-      case 'paid':
-        return '#10B981';
-      case 'pending':
-        return '#F59E0B';
-      default:
-        return '#666';
+  if (error || !groupData) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <ThemedText style={styles.title}>Error</ThemedText>
+          <View style={styles.placeholder} />
+        </View>
+        <View style={styles.centerContainer}>
+          <ThemedText style={styles.errorText}>{error || 'Failed to load group'}</ThemedText>
+          <Button title="Go Back" onPress={goBack} style={styles.backButton} />
+        </View>
+      </View>
+    );
+  }
+
+  const members = groupData.group_members?.map((member: any) => ({
+    id: member.user_id,
+    name: member.user_profiles?.full_name || member.user_id,
+    email: member.user_profiles?.email || '',
+    isCurrentUser: member.user_id === user?.id,
+    role: member.role,
+  })) || [];
+
+  const expenses = groupData.group_expenses?.map((expense: any) => ({
+    id: expense.id,
+    name: expense.description,
+    amount: `K${expense.amount.toFixed(2)}`,
+    paidBy: members.find((m: any) => m.id === expense.paid_by)?.name || 'Unknown',
+    eachOwes: `K${(expense.amount / expense.split_between.length).toFixed(2)}`,
+    eachOwesAmount: expense.amount / expense.split_between.length,
+    paidById: expense.paid_by,
+    splitBetween: expense.split_between,
+  })) || [];
+
+  const totalOwed = expenses.reduce((sum: number, expense: any) => {
+    if (expense.splitBetween.includes(user?.id) && expense.paidById !== user?.id) {
+      return sum + expense.eachOwesAmount;
     }
-  };
+    return sum;
+  }, 0);
+
+  const totalOwedToYou = expenses.reduce((sum: number, expense: any) => {
+    if (expense.paidById === user?.id) {
+      return sum + (expense.amount - expense.eachOwesAmount);
+    }
+    return sum;
+  }, 0);
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <ThemedText style={styles.title}>Diggers Lodge</ThemedText>
+        <ThemedText style={styles.title}>{groupData.name}</ThemedText>
         <View style={styles.placeholder} />
       </View>
       
@@ -80,14 +129,19 @@ export default function GroupDetailScreen() {
         <Card style={styles.membersCard}>
           <ThemedText style={styles.sectionTitle}>Members</ThemedText>
           <View style={styles.membersList}>
-            {members.map((member, index) => (
+            {members.map((member: any, index: number) => (
               <View key={index} style={styles.memberItem}>
                 <IconSymbol 
                   size={20} 
-                  name={member.includes('(you)') ? 'person.fill' : 'person.2.fill'} 
+                  name={member.isCurrentUser ? 'person.fill' : 'person.2.fill'} 
                   color="#0066CC" 
                 />
-                <ThemedText style={styles.memberName}>{member}</ThemedText>
+                <ThemedText style={styles.memberName}>
+                  {member.name} {member.isCurrentUser ? '(you)' : ''}
+                </ThemedText>
+                {member.role === 'admin' && (
+                  <IconSymbol size={16} name="star.fill" color="#F59E0B" />
+                )}
               </View>
             ))}
           </View>
@@ -102,65 +156,65 @@ export default function GroupDetailScreen() {
         
         <ThemedText style={styles.sectionTitle}>Recent Expenses</ThemedText>
         
-        {expenses.map((expense) => (
-          <Card key={expense.id} style={styles.expenseCard}>
-            <View style={styles.expenseHeader}>
-              <View style={styles.expenseInfo}>
-                <ThemedText style={styles.expenseName}>{expense.name}</ThemedText>
-                <ThemedText style={styles.expenseAmount}>{expense.amount}</ThemedText>
-              </View>
-              <IconSymbol size={24} name="bolt.fill" color="#F59E0B" />
-            </View>
-            
-            <View style={styles.expenseDetails}>
-              <ThemedText style={styles.paidBy}>Paid by: {expense.paidBy}</ThemedText>
-              <ThemedText style={styles.eachOwes}>Each owes: {expense.eachOwes}</ThemedText>
-            </View>
-            
-            {expense.payments ? (
-              <View style={styles.paymentsSection}>
-                <ThemedText style={styles.paymentsTitle}>Payments:</ThemedText>
-                {expense.payments.map((payment, paymentIndex) => (
-                  <View key={paymentIndex} style={styles.paymentItem}>
-                    <IconSymbol 
-                      size={16} 
-                      name={getPaymentIcon(payment.status)} 
-                      color={getPaymentColor(payment.status)} 
-                    />
-                    <ThemedText style={styles.paymentText}>
-                      {payment.name}
-                    </ThemedText>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.youOweSection}>
-                <IconSymbol size={16} name="arrow.up.circle.fill" color="#EF4444" />
-                <ThemedText style={styles.youOwe}>You owe {expense.youOwe}</ThemedText>
-              </View>
-            )}
+        {expenses.length === 0 ? (
+          <Card style={styles.expenseCard}>
+            <ThemedText style={styles.noExpensesText}>No expenses yet</ThemedText>
           </Card>
-        ))}
+        ) : (
+          expenses.map((expense: any) => (
+            <Card key={expense.id} style={styles.expenseCard}>
+              <View style={styles.expenseHeader}>
+                <View style={styles.expenseInfo}>
+                  <ThemedText style={styles.expenseName}>{expense.name}</ThemedText>
+                  <ThemedText style={styles.expenseAmount}>{expense.amount}</ThemedText>
+                </View>
+                <IconSymbol size={24} name="bolt.fill" color="#F59E0B" />
+              </View>
+              
+              <View style={styles.expenseDetails}>
+                <ThemedText style={styles.paidBy}>Paid by: {expense.paidBy}</ThemedText>
+                <ThemedText style={styles.eachOwes}>Each owes: {expense.eachOwes}</ThemedText>
+              </View>
+              
+              {expense.paidById !== user?.id && expense.splitBetween.includes(user?.id) && (
+                <View style={styles.youOweSection}>
+                  <IconSymbol size={16} name="arrow.up.circle.fill" color="#EF4444" />
+                  <ThemedText style={styles.youOwe}>You owe {expense.eachOwes}</ThemedText>
+                </View>
+              )}
+            </Card>
+          ))
+        )}
         
         <Card style={styles.balancesCard}>
           <ThemedText style={styles.sectionTitle}>Balances</ThemedText>
           
-          <View style={styles.balanceItem}>
-            <IconSymbol size={20} name="arrow.up.circle.fill" color="#EF4444" />
-            <ThemedText style={styles.balanceText}>You owe: K125</ThemedText>
-          </View>
+          {totalOwed > 0 && (
+            <View style={styles.balanceItem}>
+              <IconSymbol size={20} name="arrow.up.circle.fill" color="#EF4444" />
+              <ThemedText style={styles.balanceText}>You owe: K{totalOwed.toFixed(2)}</ThemedText>
+            </View>
+          )}
           
-          <View style={styles.balanceItem}>
-            <IconSymbol size={20} name="arrow.down.circle.fill" color="#10B981" />
-            <ThemedText style={styles.balanceText}>You are owed: K0</ThemedText>
-          </View>
+          {totalOwedToYou > 0 && (
+            <View style={styles.balanceItem}>
+              <IconSymbol size={20} name="arrow.down.circle.fill" color="#10B981" />
+              <ThemedText style={styles.balanceText}>You are owed: K{totalOwedToYou.toFixed(2)}</ThemedText>
+            </View>
+          )}
           
-          <Button
-            title="Settle Up →"
-            onPress={settleUp}
-            size="large"
-            style={styles.settleButton}
-          />
+          {totalOwed === 0 && totalOwedToYou === 0 && (
+            <ThemedText style={styles.settledText}>All settled up!</ThemedText>
+          )}
+          
+          {(totalOwed > 0 || totalOwedToYou > 0) && (
+            <Button
+              title="Settle Up →"
+              onPress={settleUp}
+              size="large"
+              style={styles.settleButton}
+            />
+          )}
         </Card>
       </ThemedView>
     </ScrollView>
@@ -192,6 +246,21 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#EF4444',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  backButton: {
+    marginTop: 10,
   },
   sectionTitle: {
     fontSize: 18,
@@ -225,6 +294,11 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     borderWidth: 1,
     borderColor: '#404040',
+  },
+  noExpensesText: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
   },
   expenseHeader: {
     flexDirection: 'row',
@@ -304,7 +378,14 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     color: '#FFFFFF',
   },
+  settledText: {
+    fontSize: 16,
+    color: '#10B981',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
   settleButton: {
-    marginTop: 15,
+    marginTop: 10,
   },
 });

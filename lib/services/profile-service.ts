@@ -163,4 +163,80 @@ export class ProfileService {
       )
       .subscribe();
   }
+
+  // Search users by email or name
+  static async searchUsers(
+    query: string,
+    currentUserId: string
+  ): Promise<{ success: boolean; data?: any[]; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('id, user_id, full_name, email, student_id')
+        .or(`email.ilike.%${query}%,full_name.ilike.%${query}%`)
+        .neq('user_id', currentUserId)
+        .limit(10);
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, data };
+    } catch (error: any) {
+      console.error('Search users error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to search users' 
+      };
+    }
+  }
+
+  // Get user by email
+  static async getUserByEmail(
+    email: string
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, data };
+    } catch (error: any) {
+      console.error('Get user by email error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to get user by email' 
+      };
+    }
+  }
+
+  // Get multiple users by their IDs
+  static async getUsersByIds(
+    userIds: string[]
+  ): Promise<{ success: boolean; data?: any[]; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .in('user_id', userIds);
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, data };
+    } catch (error: any) {
+      console.error('Get users by IDs error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to get users by IDs' 
+      };
+    }
+  }
 }

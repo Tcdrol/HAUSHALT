@@ -1,3 +1,4 @@
+import { ProfileService } from './services/profile-service';
 import { supabase } from './supabase';
 
 export interface AuthState {
@@ -77,6 +78,24 @@ export class AuthService {
           return this.signIn(email, password);
         }
         throw error;
+      }
+
+      // Create user profile after successful sign up
+      if (data.user) {
+        try {
+          await ProfileService.upsertProfile(data.user.id, {
+            user_id: data.user.id,
+            full_name: fullName,
+            email: email,
+            student_id: studentId,
+            user_type: 'student_private', // Default user type
+            location: 'other', // Default location
+            household_size: 1, // Default household size
+          });
+        } catch (profileError) {
+          console.error('Failed to create user profile:', profileError);
+          // Don't fail sign up if profile creation fails
+        }
       }
 
       return { success: true, data };

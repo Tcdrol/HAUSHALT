@@ -1,20 +1,18 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View, TextInput, Alert, TouchableOpacity } from 'react-native';
+import { Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { 
-  ShoppingListItem,
-  MultiStoreBudget,
-  UNIVERSAL_STORES, 
-  ZAMBIAN_LOCATIONS,
-  CustomLocation 
+import {
+    MultiStoreBudget,
+    ShoppingListItem,
+    UNIVERSAL_STORES
 } from '@/utils/groceryData';
-import { suggestItemPrice, searchGroceryItems, getPopularItems } from '@/utils/priceSuggestions';
+import { getPopularItems, searchGroceryItems, suggestItemPrice } from '@/utils/priceSuggestions';
 
 export default function GroceryMultiBudgetScreen() {
   const params = useLocalSearchParams<{ location: string; locationName?: string }>();
@@ -270,7 +268,7 @@ export default function GroceryMultiBudgetScreen() {
                   }}
                 >
                   <View style={styles.itemInfo}>
-                    <ThemedText style={styles.itemName}>+ Add "{searchQuery}"</ThemedText>
+                    <ThemedText style={styles.itemName}>+ Add &quot;{searchQuery}&quot;</ThemedText>
                     <ThemedText style={styles.itemUnit}>Custom item</ThemedText>
                   </View>
                   <View style={styles.priceInfo}>

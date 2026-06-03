@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { ExpenseService } from './expense-service';
 
 // Define types locally to avoid circular dependencies
 type Group = {
@@ -224,6 +225,71 @@ export class GroupService {
     }
   }
 
+  // Add multiple members to group
+  static async addGroupMembers(
+    groupId: string, 
+    userIds: string[], 
+    role: 'admin' | 'member' = 'member'
+  ): Promise<{ success: boolean; data?: GroupMember[]; error?: string }> {
+    try {
+      const members = userIds.map(userId => ({
+        group_id: groupId,
+        user_id: userId,
+        role,
+      }));
+
+      const { data, error } = await supabase
+        .from('group_members')
+        .insert(members)
+        .select();
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, data: data as GroupMember[] };
+    } catch (error: any) {
+      console.error('Add group members error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to add group members' 
+      };
+    }
+  }
+
+  // Get group members with profile information
+  static async getGroupMembersWithProfiles(
+    groupId: string
+  ): Promise<{ success: boolean; data?: any[]; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('group_members')
+        .select(`
+          *,
+          user_profiles(
+            id,
+            user_id,
+            full_name,
+            email,
+            student_id
+          )
+        `)
+        .eq('group_id', groupId);
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, data };
+    } catch (error: any) {
+      console.error('Get group members with profiles error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to get group members' 
+      };
+    }
+  }
+
   // Remove member from group
   static async removeGroupMember(
     groupId: string, 
@@ -255,17 +321,14 @@ export class GroupService {
     expenseData: Omit<GroupExpense, 'id' | 'created_at'>
   ): Promise<{ success: boolean; data?: GroupExpense; error?: string }> {
     try {
-      const { data, error } = await supabase
-        .from('group_expenses')
-        .insert(expenseData)
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
+      // Use the expense service to add the group expense and reflect it across all members
+      const result = await ExpenseService.addGroupExpenseForAll(expenseData);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to add group expense');
       }
 
-      return { success: true, data };
+      return { success: true, data: result.data?.groupExpense as GroupExpense };
     } catch (error: any) {
       console.error('Add group expense error:', error);
       return { 

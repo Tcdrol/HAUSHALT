@@ -283,10 +283,47 @@ export class BudgetService {
     }
   }
 
+  // Get user preferences (used for budget settings)
+  static async getUserPreferences(
+    userId: string
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) {
+        // If no preferences found, return default values
+        if (error.code === 'PGRST116') {
+          return { 
+            success: true, 
+            data: {
+              currency: 'ZMW',
+              budget_alerts: true,
+              auto_categorize: true,
+              monthly_income: 0
+            }
+          };
+        }
+        throw error;
+      }
+
+      return { success: true, data };
+    } catch (error: any) {
+      console.error('Get user preferences error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to get user preferences' 
+      };
+    }
+  }
+
   // Save user preferences (used for budget settings)
   static async upsertUserPreferences(
-    userId: string, 
-    settings: { user_id: string; monthly_income: number; currency: string; budget_alerts: boolean; auto_categorize: boolean }
+    userId: string,
+    settings: Record<string, any>
   ): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       const { data, error } = await supabase

@@ -104,7 +104,7 @@ export default function DashboardScreen() {
         
         {budgetOverview && (
           <Card variant="elevated" style={styles.budgetCard}>
-            <ThemedText style={styles.budgetTitle}>This month's spending</ThemedText>
+            <ThemedText style={styles.budgetTitle}>This month&apos;s spending</ThemedText>
             <View style={styles.budgetDetails}>
               <ThemedText style={styles.budgetItem}>Budget: {formatCurrency(budgetOverview.totalBudget)}</ThemedText>
               <ThemedText style={styles.budgetItem}>Spent: {formatCurrency(budgetOverview.totalSpent)}</ThemedText>

@@ -107,13 +107,33 @@ export function validateGroupData(
     return { isValid: false, error: 'Group name is required' };
   }
   
-  if (members.length < 2) {
-    return { isValid: false, error: 'At least 2 members are required' };
+  if (members.length < 1) {
+    return { isValid: false, error: 'At least 1 member is required (excluding yourself)' };
   }
   
   const uniqueMembers = new Set(members.map(m => m.toLowerCase().trim()));
   if (uniqueMembers.size !== members.length) {
     return { isValid: false, error: 'Duplicate member names are not allowed' };
+  }
+  
+  return { isValid: true };
+}
+
+export function validateGroupDataWithUsers(
+  name: string,
+  members: any[]
+): { isValid: boolean; error?: string } {
+  if (!name || name.trim().length === 0) {
+    return { isValid: false, error: 'Group name is required' };
+  }
+  
+  if (members.length < 1) {
+    return { isValid: false, error: 'At least 1 member is required (excluding yourself)' };
+  }
+  
+  const uniqueIds = new Set(members.map(m => m.user_id));
+  if (uniqueIds.size !== members.length) {
+    return { isValid: false, error: 'Duplicate members are not allowed' };
   }
   
   return { isValid: true };
