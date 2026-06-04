@@ -5,9 +5,10 @@ A React Native + Expo mobile application for budget tracking, expense management
 ## Recent Updates
 - **Infrastructure fixes**: Resolved routing errors, import issues, and service configuration problems
 - **Code quality**: Fixed TypeScript errors, reduced lint warnings from 41 to 33 (0 errors)
-- **Service improvements**: Added missing service functions and fixed AsyncStorage configuration
+- **Service improvements**: Added missing service functions and implemented AsyncStorage for persistence
 - **Navigation**: Fixed route structure and removed invalid route references
 - **Schema fixes**: Added missing budget fields to user_preferences table, created migration script
+- **User state persistence**: Implemented AsyncStorage-based user state saving after login
 
 ## Features
 
@@ -55,6 +56,7 @@ myApp/
 ├── lib/                        # Backend services
 │   ├── auth.ts                 # Supabase auth service
 │   ├── supabase.ts             # Supabase client + realtime
+│   ├── storage.ts              # AsyncStorage for user state persistence
 │   ├── database-types.ts       # TypeScript types
 │   └── services/               # Data services
 │       ├── profile-service.ts  # User profile CRUD
@@ -186,6 +188,14 @@ npx expo start
   - Added missing budget fields to user_preferences table (`currency`, `budget_alerts`, `auto_categorize`, `monthly_budget`)
   - Created migration script for existing databases
   - Fixed service method signatures to match database operations
+- **User State Persistence**:
+  - Created StorageService for AsyncStorage-based user data persistence
+  - User profile and preferences now saved locally after login
+  - Persisted data loaded on app startup for faster UX
+  - Storage cleared on logout for security
+  - Added userPreferences to useAuth hook for easy access
+  - Fixed AsyncStorage version compatibility (downgraded to 2.2.0 for Expo compatibility)
+  - Added defensive error handling for storage operations
 - **Lint Status**: 0 errors, 33 warnings (warnings are minor unused variables in other files)
 
 ### Needs Database Connection 🔧
