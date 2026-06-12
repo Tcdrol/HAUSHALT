@@ -12,5 +12,5 @@
   "env": {
     "EXPO_PUBLIC_SUPABASE_URL": "https://yqgozxfdeorhjptuhxqj.supabase.co",
     "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxZ296eGZkZW9yaGpwdHVoeHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNzEyNTgsImV4cCI6MjA5MDY0NzI1OH0.E1fn_uWAdPwgQDJKcP6gbSqgDJPm2UC016u6vv1Lvu4"
-  }
+  } 
 }
