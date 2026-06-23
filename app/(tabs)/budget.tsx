@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -7,14 +7,18 @@ import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/app-context';
 import { BudgetService } from '@/lib/services/budget-service';
+import { ExpenseService } from '@/lib/services/expense-service';
 import { BudgetCategory, calculateBudgetProgress } from '@/utils/budgetCalculations';
 
 export default function BudgetScreen() {
   const { user } = useAuth();
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  
+  const [showExpenses, setShowExpenses] = useState(false);
+
   useEffect(() => {
     if (user) {
       fetchBudgetData();
@@ -22,6 +26,12 @@ export default function BudgetScreen() {
       setLoading(false);
     }
   }, [user, currentMonth]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchBudgetData();
+    setRefreshing(false);
+  };
 
   const { totalBudget, totalSpent, totalPercentage, isOverBudget } = calculateBudgetProgress(budgetCategories);
   
@@ -34,6 +44,17 @@ export default function BudgetScreen() {
       'Personal': 'person.fill',
     };
     return iconMap[categoryName] || 'dollarsign.circle.fill';
+  };
+
+  const getCategoryColor = (categoryName: string) => {
+    const colorMap: { [key: string]: string } = {
+      'Groceries': '#10B981',
+      'Transport': '#F59E0B',
+      'Airtime/Data': '#8B5CF6',
+      'Rent': '#6366F1',
+      'Personal': '#6B7280',
+    };
+    return colorMap[categoryName] || '#6B7280';
   };
 
   const formatMonth = (date: Date) => {
@@ -51,11 +72,14 @@ export default function BudgetScreen() {
       const month = currentMonth.getMonth() + 1;
       const year = currentMonth.getFullYear();
       
-      const result = await BudgetService.getBudgetCategories(user.id, month, year);
+      const [budgetResult, expensesResult] = await Promise.all([
+        BudgetService.getBudgetCategories(user.id, month, year),
+        ExpenseService.getExpensesByMonth(user.id, month, year)
+      ]);
       
-      if (result.success && result.data) {
+      if (budgetResult.success && budgetResult.data) {
         // Transform Supabase data to BudgetCategory format
-        const categories: BudgetCategory[] = result.data.map(cat => ({
+        const categories: BudgetCategory[] = budgetResult.data.map((cat: any) => ({
           name: cat.name,
           plannedAmount: cat.planned_amount,
           spentAmount: cat.spent_amount,
@@ -67,9 +91,16 @@ export default function BudgetScreen() {
         // Fallback to empty array if fetch fails
         setBudgetCategories([]);
       }
+
+      if (expensesResult.success && expensesResult.data) {
+        setExpenses(expensesResult.data);
+      } else {
+        setExpenses([]);
+      }
     } catch (error) {
       console.error('Error fetching budget data:', error);
       setBudgetCategories([]);
+      setExpenses([]);
     } finally {
       setLoading(false);
     }
@@ -189,6 +220,53 @@ export default function BudgetScreen() {
               </ThemedText>
             </View>
           </View>
+        </Card>
+
+        <Card style={styles.expensesCard}>
+          <TouchableOpacity 
+            style={styles.expensesHeader}
+            onPress={() => setShowExpenses(!showExpenses)}
+          >
+            <View style={styles.expensesHeaderLeft}>
+              <IconSymbol size={20} name="list.bullet" color="#0066CC" />
+              <ThemedText style={styles.expensesTitle}>
+                Expenses for {formatMonth(currentMonth)}
+              </ThemedText>
+            </View>
+            <IconSymbol 
+              size={20} 
+              name={showExpenses ? "chevron.up" : "chevron.down"} 
+              color="#FFFFFF" 
+            />
+          </TouchableOpacity>
+
+          {showExpenses && (
+            <View style={styles.expensesList}>
+              {expenses.length > 0 ? (
+                expenses.map((expense) => (
+                  <View key={expense.id} style={styles.expenseItem}>
+                    <View style={styles.expenseLeft}>
+                      <IconSymbol 
+                        size={18} 
+                        name={getCategoryIcon(expense.category)} 
+                        color={getCategoryColor(expense.category)} 
+                      />
+                      <View style={styles.expenseDetails}>
+                        <ThemedText style={styles.expenseMerchant}>{expense.merchant}</ThemedText>
+                        <ThemedText style={styles.expenseCategory}>{expense.category}</ThemedText>
+                        <ThemedText style={styles.expenseDate}>{expense.date}</ThemedText>
+                      </View>
+                    </View>
+                    <ThemedText style={styles.expenseAmount}>K{expense.amount}</ThemedText>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.noExpensesContainer}>
+                  <ThemedText style={styles.noExpensesText}>No expenses for this month</ThemedText>
+                </View>
+              )}
+            </View>
+          )}
         </Card>
       </ThemedView>
     </ScrollView>
@@ -379,6 +457,77 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
+    color: '#FFFFFF',
+    opacity: 0.7,
+  },
+  expensesCard: {
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#404040',
+  },
+  expensesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  expensesHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  expensesTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginLeft: 8,
+  },
+  expensesList: {
+    marginTop: 15,
+  },
+  expenseItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#404040',
+  },
+  expenseLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  expenseDetails: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  expenseMerchant: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  expenseCategory: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.7,
+    marginTop: 2,
+  },
+  expenseDate: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    opacity: 0.5,
+    marginTop: 2,
+  },
+  expenseAmount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  noExpensesContainer: {
+    paddingVertical: 30,
+    alignItems: 'center',
+  },
+  noExpensesText: {
+    fontSize: 14,
     color: '#FFFFFF',
     opacity: 0.7,
   },

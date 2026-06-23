@@ -173,6 +173,58 @@ export class BudgetService {
     }
   }
 
+  // Add expense amount to budget category spent amount
+  static async addExpenseToBudget(
+    userId: string,
+    category: string,
+    amount: number,
+    month: number,
+    year: number
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Find the budget category for this category name, month, and year
+      const { data: budgetCategory, error: findError } = await supabase
+        .from('budget_categories')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('name', category)
+        .eq('month', month)
+        .eq('year', year)
+        .single();
+
+      if (findError) {
+        // If no budget category exists for this month, that's okay - just skip
+        if (findError.code === 'PGRST116') {
+          console.log(`No budget category found for ${category} in ${month}/${year}`);
+          return { success: true };
+        }
+        throw findError;
+      }
+
+      // Update the spent amount
+      const newSpentAmount = (budgetCategory.spent_amount || 0) + amount;
+      const { error: updateError } = await supabase
+        .from('budget_categories')
+        .update({
+          spent_amount: newSpentAmount,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', budgetCategory.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Add expense to budget error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to update budget' 
+      };
+    }
+  }
+
   // Get budget overview for a month
   static async getBudgetOverview(
     userId: string, 

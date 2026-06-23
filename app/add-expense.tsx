@@ -13,10 +13,15 @@ import { GroupService } from '@/lib/services/group-service';
 import { categorizeExpense, parseExpenseInput } from '@/utils/expenseCategorization';
 import { validateExpenseInput } from '@/utils/validation';
 
+interface ExpenseEntry {
+  id: string;
+  description: string;
+}
+
 export default function AddExpenseScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [description, setDescription] = useState('');
+  const [expenses, setExpenses] = useState<ExpenseEntry[]>([{ id: '1', description: '' }]);
   const [isShared, setIsShared] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [groups, setGroups] = useState<any[]>([]);
@@ -52,51 +57,92 @@ export default function AddExpenseScreen() {
     }
   };
 
+  const addExpenseRow = () => {
+    const newId = (expenses.length + 1).toString();
+    setExpenses([...expenses, { id: newId, description: '' }]);
+  };
+
+  const removeExpenseRow = (id: string) => {
+    if (expenses.length > 1) {
+      setExpenses(expenses.filter(exp => exp.id !== id));
+      // Clear error for this row if exists
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[`description_${id}`];
+        return newErrors;
+      });
+    }
+  };
+
+  const updateExpenseDescription = (id: string, value: string) => {
+    setExpenses(expenses.map(exp => exp.id === id ? { ...exp, description: value } : exp));
+    // Clear error for this row when user starts typing
+    if (errors[`description_${id}`]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[`description_${id}`];
+        return newErrors;
+      });
+    }
+  };
+
   const addExpense = async () => {
     if (!user) {
       Alert.alert('Error', 'You must be logged in to add expenses');
       return;
     }
 
-    const validation = validateExpenseInput(description);
-    
-    if (!validation.isValid) {
-      const errorMap: { [key: string]: string } = {};
-      validation.errors.forEach(error => {
-        errorMap[error.field] = error.message;
-      });
+    // Validate all expense entries
+    const errorMap: { [key: string]: string } = {};
+    let hasErrors = false;
+
+    expenses.forEach(expense => {
+      const validation = validateExpenseInput(expense.description);
+      if (!validation.isValid) {
+        hasErrors = true;
+        validation.errors.forEach(error => {
+          errorMap[`description_${expense.id}`] = error.message;
+        });
+      }
+    });
+
+    if (hasErrors) {
       setErrors(errorMap);
       return;
     }
 
-    const parsed = parseExpenseInput(description);
-    if (!parsed.amount) {
-      setErrors({ description: 'Could not extract amount from description' });
-      return;
-    }
+    // Parse and prepare all expenses
+    const expenseDataList = expenses
+      .map(expense => {
+        const parsed = parseExpenseInput(expense.description);
+        const category = categorizeExpense(expense.description);
+        return {
+          user_id: user.id,
+          description: parsed.merchant || expense.description,
+          amount: parsed.amount,
+          category: category.name,
+          merchant: parsed.merchant || 'Unknown',
+          date: new Date().toISOString().split('T')[0],
+          is_shared: isShared,
+          group_id: isShared && selectedGroup ? groups.find(g => g.name === selectedGroup)?.id : null,
+        };
+      })
+      .filter((exp): exp is typeof exp & { amount: number } => exp.amount !== null);
 
-    const category = categorizeExpense(description);
-    
     setSaving(true);
     try {
-      // Save to Supabase
-      const expenseData = {
-        user_id: user.id,
-        description: parsed.merchant || description,
-        amount: parsed.amount,
-        category: category.name,
-        merchant: parsed.merchant || 'Unknown',
-        date: new Date().toISOString().split('T')[0],
-        is_shared: isShared,
-        group_id: isShared && selectedGroup ? groups.find(g => g.name === selectedGroup)?.id : null,
-      };
+      // Save all expenses to Supabase
+      const results = await Promise.all(
+        expenseDataList.map(data => ExpenseService.addExpense(data))
+      );
 
-      const result = await ExpenseService.addExpense(expenseData);
-      
-      if (result.success) {
+      const failedExpenses = results.filter(r => !r.success);
+
+      if (failedExpenses.length === 0) {
+        const totalAmount = expenseDataList.reduce((sum, exp) => sum + (exp.amount || 0), 0);
         Alert.alert(
           'Success',
-          `Expense added:\n${parsed.merchant}: K${parsed.amount}\nCategory: ${category.name}`,
+          `${expenses.length} expense(s) added successfully!\nTotal: K${totalAmount}`,
           [
             { 
               text: 'OK', 
@@ -106,14 +152,17 @@ export default function AddExpenseScreen() {
         );
         
         // Reset form
-        setDescription('');
+        setExpenses([{ id: '1', description: '' }]);
         setErrors({});
         setIsShared(false);
       } else {
-        Alert.alert('Error', result.error || 'Failed to add expense');
+        Alert.alert(
+          'Partial Success',
+          `${results.length - failedExpenses.length}/${expenses.length} expenses added. Some failed.`
+        );
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to add expense');
+      Alert.alert('Error', error.message || 'Failed to add expenses');
     } finally {
       setSaving(false);
     }
@@ -132,13 +181,35 @@ export default function AddExpenseScreen() {
       
       <ScrollView style={styles.content}>
         <Card style={styles.card}>
-          <Input
-            label="What did you spend on?"
-            placeholder="Shoprite 350"
-            value={description}
-            onChangeText={setDescription}
-            error={errors.description}
-          />
+          {expenses.map((expense, index) => (
+            <View key={expense.id} style={styles.expenseRow}>
+              <View style={styles.expenseInputContainer}>
+                <Input
+                  label={`Expense ${index + 1}`}
+                  placeholder="Shoprite 350"
+                  value={expense.description}
+                  onChangeText={(value) => updateExpenseDescription(expense.id, value)}
+                  error={errors[`description_${expense.id}`]}
+                />
+              </View>
+              {expenses.length > 1 && (
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => removeExpenseRow(expense.id)}
+                >
+                  <IconSymbol size={20} name="minus.circle.fill" color="#EF4444" />
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
+
+          <TouchableOpacity
+            style={styles.addExpenseButton}
+            onPress={addExpenseRow}
+          >
+            <IconSymbol size={20} name="plus.circle.fill" color="#10B981" />
+            <ThemedText style={styles.addExpenseText}>Add Another Expense</ThemedText>
+          </TouchableOpacity>
           
           <View style={styles.exampleSection}>
             <View style={styles.exampleHeader}>
@@ -265,11 +336,11 @@ export default function AddExpenseScreen() {
         </Card>
         
         <Button
-          title={saving ? "Adding..." : "Add Expense"}
+          title={saving ? "Adding..." : "Add Expense(s)"}
           onPress={addExpense}
           size="large"
           style={styles.addButton}
-          disabled={!description.trim() || saving}
+          disabled={!expenses.some(e => e.description.trim()) || saving}
         />
       </ScrollView>
     </View>
@@ -308,6 +379,36 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#404040',
+  },
+  expenseRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 15,
+  },
+  expenseInputContainer: {
+    flex: 1,
+  },
+  removeButton: {
+    marginLeft: 10,
+    marginTop: 30,
+    padding: 4,
+  },
+  addExpenseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#1E3A1E',
+    borderWidth: 1,
+    borderColor: '#404040',
+    marginBottom: 20,
+  },
+  addExpenseText: {
+    fontSize: 14,
+    marginLeft: 8,
+    color: '#FFFFFF',
+    fontWeight: '500',
   },
   exampleSection: {
     marginBottom: 30,

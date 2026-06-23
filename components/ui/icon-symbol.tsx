@@ -50,6 +50,10 @@ const EXTENDED_MAPPING = {
   'mail.fill': 'email',
   'chat.fill': 'chat',
   'star.fill': 'star',
+  'list.bullet': 'list',
+  'chevron.up': 'expand-less',
+  'chevron.down': 'expand-more',
+  'minus.circle.fill': 'remove-circle',
 } as const;
 
 type IconSymbolName = keyof typeof EXTENDED_MAPPING;

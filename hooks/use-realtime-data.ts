@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { realtimeManager } from '../lib/supabase';
+import { realtimeManager, supabase } from '../lib/supabase';
 
 // Generic hook for real-time data synchronization
 export function useRealtimeData<T>(
@@ -13,11 +13,53 @@ export function useRealtimeData<T>(
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<string | null>(null);
 
-  const subscribe = useCallback(() => {
+  const fetchInitialData = useCallback(async () => {
     if (!userId) return;
 
     setLoading(true);
     setError(null);
+
+    try {
+      let query = supabase.from(table).select('*');
+      
+      // Add user filter
+      if (table === 'expenses') {
+        query = query.eq('user_id', userId);
+      }
+      
+      // Add additional filter if provided
+      if (filter) {
+        const filters = filter.split('&');
+        filters.forEach(f => {
+          const [key, value] = f.split('=');
+          if (key && value) {
+            query = query.eq(key, value);
+          }
+        });
+      }
+
+      // Order by date descending for expenses
+      if (table === 'expenses') {
+        query = query.order('date', { ascending: false }).order('created_at', { ascending: false });
+      }
+
+      const { data: fetchedData, error: fetchError } = await query;
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      setData(fetchedData as T[] || []);
+    } catch (err: any) {
+      console.error(`Error fetching initial data for ${table}:`, err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [table, userId, filter]);
+
+  const subscribe = useCallback(() => {
+    if (!userId) return;
 
     // Subscribe to real-time updates
     const channelName = `${table}_${Date.now()}`;
@@ -28,7 +70,7 @@ export function useRealtimeData<T>(
         console.log(`Real-time update for ${table}:`, payload);
         
         if (payload.eventType === 'INSERT') {
-          setData(prev => [...prev, payload.new as T]);
+          setData(prev => [payload.new as T, ...prev]);
         } else if (payload.eventType === 'UPDATE') {
           setData(prev => prev.map(item => 
             (item as any).id === payload.new.id ? payload.new as T : item
@@ -41,7 +83,6 @@ export function useRealtimeData<T>(
     );
 
     channelRef.current = channelName;
-    setLoading(false);
   }, [table, userId, filter]);
 
   const unsubscribe = useCallback(() => {
@@ -52,11 +93,12 @@ export function useRealtimeData<T>(
   }, []);
 
   useEffect(() => {
+    fetchInitialData();
     subscribe();
     return unsubscribe;
-  }, [subscribe, unsubscribe]);
+  }, [fetchInitialData, subscribe, unsubscribe]);
 
-  return { data, loading, error, refresh: subscribe, unsubscribe };
+  return { data, loading, error, refresh: fetchInitialData, unsubscribe };
 }
 
 // Hook for real-time expenses

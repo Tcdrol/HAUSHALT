@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { BudgetService } from './budget-service';
 
 // Define types locally to avoid circular dependencies
 type Expense = {
@@ -112,6 +113,19 @@ export class ExpenseService {
       if (error) {
         throw error;
       }
+
+      // Update budget spent amount automatically
+      const expenseDate = new Date(expenseData.date);
+      const month = expenseDate.getMonth() + 1;
+      const year = expenseDate.getFullYear();
+
+      await BudgetService.addExpenseToBudget(
+        expenseData.user_id,
+        expenseData.category,
+        expenseData.amount,
+        month,
+        year
+      );
 
       return { success: true, data };
     } catch (error: any) {
