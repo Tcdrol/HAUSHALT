@@ -21,7 +21,7 @@ interface ExpenseEntry {
 export default function AddExpenseScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [expenses, setExpenses] = useState<ExpenseEntry[]>([{ id: '1', description: '' }]);
+  const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
   const [isShared, setIsShared] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [groups, setGroups] = useState<any[]>([]);
@@ -58,7 +58,7 @@ export default function AddExpenseScreen() {
   };
 
   const addExpenseRow = () => {
-    const newId = (expenses.length + 1).toString();
+    const newId = Date.now().toString();
     setExpenses([...expenses, { id: newId, description: '' }]);
   };
 
@@ -152,7 +152,7 @@ export default function AddExpenseScreen() {
         );
         
         // Reset form
-        setExpenses([{ id: '1', description: '' }]);
+        setExpenses([]);
         setErrors({});
         setIsShared(false);
       } else {
@@ -221,19 +221,11 @@ export default function AddExpenseScreen() {
             <View style={styles.examples}>
               <View style={styles.exampleItem}>
                 <IconSymbol size={16} name="phone.fill" color="#8B5CF6" />
-                <ThemedText style={styles.example}>&quot;MTN 100&quot; → Airtime</ThemedText>
-              </View>
-              <View style={styles.exampleItem}>
-                <IconSymbol size={16} name="bolt.fill" color="#EF4444" />
-                <ThemedText style={styles.example}>&quot;ZESCO 200&quot; → Electricity</ThemedText>
-              </View>
-              <View style={styles.exampleItem}>
-                <IconSymbol size={16} name="car.fill" color="#F59E0B" />
-                <ThemedText style={styles.example}>&quot;Kombi 10&quot; → Transport</ThemedText>
+                <ThemedText style={styles.example}>&quot;Store Name Amount&quot; → Auto-categorized</ThemedText>
               </View>
               <View style={styles.exampleItem}>
                 <IconSymbol size={16} name="cart.fill" color="#10B981" />
-                <ThemedText style={styles.example}>&quot;Shoprite 350&quot; → Groceries</ThemedText>
+                <ThemedText style={styles.example}>&quot;Merchant 100&quot; → Expense entry</ThemedText>
               </View>
             </View>
           </View>

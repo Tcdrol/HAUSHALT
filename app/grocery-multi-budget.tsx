@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import {
-    MultiStoreBudget,
-    ShoppingListItem,
-    UNIVERSAL_STORES
+  MultiStoreBudget,
+  ShoppingListItem,
+  UNIVERSAL_STORES
 } from '@/utils/groceryData';
 import { getPopularItems, searchGroceryItems, suggestItemPrice } from '@/utils/priceSuggestions';
 
@@ -63,6 +63,29 @@ export default function GroceryMultiBudgetScreen() {
     setBudgetItems(prev => [...prev, listItem]);
     setSearchQuery('');
   };
+
+  const addCustomItem = (itemName: string, storeId: string) => {
+    const customItem = {
+      id: `custom_${Date.now()}`,
+      name: itemName.trim(),
+      category: 'other' as const,
+      unit: 'item',
+      baselinePrice: 50,
+      lastUpdated: new Date()
+    };
+    
+    const listItem: ShoppingListItem = {
+      id: Date.now().toString(),
+      item: customItem,
+      suggestedPrice: 50,
+      quantity: 1,
+      added: new Date(),
+      storeId,
+    };
+    
+    setBudgetItems(prev => [...prev, listItem]);
+    setSearchQuery('');
+  };
   
   const removeItemFromBudget = (itemId: string) => {
     setBudgetItems(prev => prev.filter(item => item.id !== itemId));
@@ -74,6 +97,16 @@ export default function GroceryMultiBudgetScreen() {
   
   const getStoreName = (storeId: string) => {
     return UNIVERSAL_STORES.find(s => s.id === storeId)?.name || storeId;
+  };
+  
+  const getStoreTypeIcon = (storeType: string) => {
+    switch (storeType) {
+      case 'supermarket': return '🏪';
+      case 'hypermarket': return '🏬';
+      case 'convenience': return '🏪';
+      case 'wholesale': return '📦';
+      default: return '🏪';
+    }
   };
   
   const getItemsByStore = (storeId: string) => {
@@ -250,34 +283,25 @@ export default function GroceryMultiBudgetScreen() {
                     </TouchableOpacity>
                   );
                 })}
-                
-                {/* Custom Item Option */}
-                <TouchableOpacity
-                  style={[styles.itemCard, styles.customItemCard]}
-                  onPress={() => {
-                    if (searchQuery.trim()) {
-                      addItemToBudget({
-                        id: `custom_${Date.now()}`,
-                        name: searchQuery.trim(),
-                        category: 'other',
-                        unit: 'item',
-                        baselinePrice: 50,
-                        lastUpdated: new Date()
-                      }, currentStore);
-                    }
-                  }}
-                >
-                  <View style={styles.itemInfo}>
-                    <ThemedText style={styles.itemName}>+ Add &quot;{searchQuery}&quot;</ThemedText>
-                    <ThemedText style={styles.itemUnit}>Custom item</ThemedText>
-                  </View>
-                  <View style={styles.priceInfo}>
-                    <ThemedText style={styles.suggestedPrice}>
-                      K50 (est.)
-                    </ThemedText>
-                  </View>
-                </TouchableOpacity>
               </View>
+            )}
+            
+            {/* Custom Item Option */}
+            {searchQuery.trim() && (
+              <TouchableOpacity
+                style={[styles.itemCard, styles.customItemCard]}
+                onPress={() => addCustomItem(searchQuery, currentStore)}
+              >
+                <View style={styles.itemInfo}>
+                  <ThemedText style={styles.itemName}>+ Add "{searchQuery}"</ThemedText>
+                  <ThemedText style={styles.itemUnit}>Custom item</ThemedText>
+                </View>
+                <View style={styles.priceInfo}>
+                  <ThemedText style={styles.suggestedPrice}>
+                    K50 (est.)
+                  </ThemedText>
+                </View>
+              </TouchableOpacity>
             )}
             
             {/* Budget Summary */}
@@ -319,19 +343,6 @@ export default function GroceryMultiBudgetScreen() {
   );
 }
 
-function getStoreTypeIcon(type: string): string {
-  const icons: { [key: string]: string } = {
-    'supermarket': '🏪',
-    'market': '🏛️',
-    'convenience': '🏪',
-    'pharmacy': '💊',
-    'hardware': '🔧',
-    'butcher': '🥩',
-    'bakery': '🍞',
-    'other': '📍',
-  };
-  return icons[type] || '📍';
-}
 
 const styles = StyleSheet.create({
   container: {

@@ -225,6 +225,33 @@ export class BudgetService {
     }
   }
 
+  // Get most recent budget categories for a user
+  static async getMostRecentBudget(
+    userId: string
+  ): Promise<{ success: boolean; data?: BudgetCategory[]; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('budget_categories')
+        .select('*')
+        .eq('user_id', userId)
+        .order('year', { ascending: false })
+        .order('month', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, data: data || [] };
+    } catch (error: any) {
+      console.error('Get most recent budget error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to get most recent budget' 
+      };
+    }
+  }
+
   // Get budget overview for a month
   static async getBudgetOverview(
     userId: string, 

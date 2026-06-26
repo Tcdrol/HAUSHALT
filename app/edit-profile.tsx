@@ -19,10 +19,10 @@ export default function EditProfileScreen() {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
-    studentId: '',
-    userType: 'student_private',
+    userType: 'student',
     location: 'kitwe',
     householdSize: 1,
+    accommodationType: 'hostel',
   });
 
   // Load user profile from Supabase
@@ -41,10 +41,10 @@ export default function EditProfileScreen() {
         setFormData({
           fullName: result.data.full_name || '',
           email: result.data.email || user.email || '',
-          studentId: result.data.student_id || '',
-          userType: result.data.user_type || 'student_private',
+          userType: result.data.user_type || 'student',
           location: result.data.location || 'kitwe',
           householdSize: result.data.household_size || 1,
+          accommodationType: result.data.accommodation_type || 'hostel',
         });
       } else {
         // Use user metadata if profile doesn't exist yet
@@ -52,7 +52,6 @@ export default function EditProfileScreen() {
           ...prev,
           fullName: user.user_metadata?.full_name || '',
           email: user.email || '',
-          studentId: user.user_metadata?.student_id || '',
         }));
       }
     } catch (error) {
@@ -75,10 +74,10 @@ export default function EditProfileScreen() {
         {
           full_name: formData.fullName,
           email: formData.email,
-          student_id: formData.studentId,
-          user_type: formData.userType as 'student_hostel' | 'student_private' | 'professional' | 'sharing_roommates',
+          user_type: formData.userType as 'student' | 'household' | 'sharing_roommates',
           location: formData.location as 'kitwe' | 'lusaka' | 'other',
           household_size: formData.householdSize,
+          accommodation_type: formData.accommodationType as 'hostel' | 'apartment' | 'house' | 'shared',
         }
       );
 
@@ -130,17 +129,10 @@ export default function EditProfileScreen() {
             autoCapitalize="none"
           />
           
-          <Input
-            label="Student ID"
-            placeholder="Enter your student ID"
-            value={formData.studentId}
-            onChangeText={(text) => setFormData({...formData, studentId: text})}
-          />
-          
           <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>User Type</ThemedText>
             <View style={styles.options}>
-              {['student_hostel', 'student_private', 'professional', 'sharing_roommates'].map((type) => (
+              {['student', 'household', 'sharing_roommates'].map((type) => (
                 <TouchableOpacity
                   key={type}
                   style={[
@@ -184,22 +176,22 @@ export default function EditProfileScreen() {
           </View>
           
           <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Household Size</ThemedText>
+            <ThemedText style={styles.sectionTitle}>Accommodation Type</ThemedText>
             <View style={styles.options}>
-              {[1, 2, 3, 4, 5].map((size) => (
+              {['hostel', 'apartment', 'house', 'shared'].map((type) => (
                 <TouchableOpacity
-                  key={size}
+                  key={type}
                   style={[
                     styles.option,
-                    formData.householdSize === size && styles.selectedOption
+                    formData.accommodationType === type && styles.selectedOption
                   ]}
-                  onPress={() => setFormData({...formData, householdSize: size})}
+                  onPress={() => setFormData({...formData, accommodationType: type})}
                 >
                   <ThemedText style={[
                     styles.optionText,
-                    formData.householdSize === size && styles.selectedOptionText
+                    formData.accommodationType === type && styles.selectedOptionText
                   ]}>
-                    {size} {size === 1 ? 'person' : 'people'}
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
                   </ThemedText>
                 </TouchableOpacity>
               ))}

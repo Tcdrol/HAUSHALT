@@ -17,13 +17,13 @@ export default function BasicInfoScreen() {
     location: '',
     householdSize: 1,
     otherLocation: '',
+    accommodationType: 'hostel',
   });
 
   const userTypes = [
-    { value: 'student_hostel', label: 'Student in hostel' },
-    { value: 'student_private', label: 'Student renting privately' },
-    { value: 'professional', label: 'Young professional' },
-    { value: 'sharing_roommates', label: 'Sharing with roommates' },
+    { value: 'student', label: 'Student' },
+    { value: 'household', label: 'Household' },
+    { value: 'sharing_roommates', label: 'Sharing Roommates' },
   ];
 
   const locations = [
@@ -149,22 +149,27 @@ export default function BasicInfoScreen() {
           </View>
           
           <View style={styles.formGroup}>
-            <ThemedText style={styles.label}>People Sharing Expenses</ThemedText>
-            <View style={styles.householdOptions}>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((size) => (
+            <ThemedText style={styles.label}>Accommodation Type</ThemedText>
+            <View style={styles.options}>
+              {['hostel', 'apartment', 'house', 'shared'].map((type) => (
                 <TouchableOpacity
-                  key={size}
+                  key={type}
                   style={[
-                    styles.householdOption,
-                    formData.householdSize === size && styles.selectedHouseholdOption
+                    styles.option,
+                    formData.accommodationType === type && styles.selectedOption
                   ]}
-                  onPress={() => setFormData({...formData, householdSize: size})}
+                  onPress={() => setFormData({...formData, accommodationType: type})}
                 >
-                  <ThemedText style={[
-                    styles.householdNumber,
-                    formData.householdSize === size && styles.selectedHouseholdNumber
+                  <View style={[
+                    styles.radioCircle,
+                    formData.accommodationType === type && styles.radioCircleSelected
                   ]}>
-                    {size}
+                    {formData.accommodationType === type && (
+                      <View style={styles.radioDot} />
+                    )}
+                  </View>
+                  <ThemedText style={styles.optionText}>
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
                   </ThemedText>
                 </TouchableOpacity>
               ))}

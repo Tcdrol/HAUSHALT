@@ -1,16 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View, TextInput, Alert, TouchableOpacity } from 'react-native';
+import { Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { 
-  UNIVERSAL_STORES, 
-  ZAMBIAN_LOCATIONS,
-  CustomLocation 
+import {
+  UNIVERSAL_STORES,
+  ZAMBIAN_LOCATIONS
 } from '@/utils/groceryData';
 import { createCustomLocation } from '@/utils/priceSuggestions';
 
@@ -57,35 +56,15 @@ export default function GroceryScreen() {
       return;
     }
     
-    // Show option for single store vs multi-store
-    Alert.alert(
-      'Shopping Mode',
-      'How would you like to shop?',
-      [
-        {
-          text: 'Single Store',
-          onPress: () => {
-            router.push({
-              pathname: '/grocery-shopping',
-              params: { store, location: selectedLocation }
-            });
-          }
-        },
-        {
-          text: 'Multiple Stores',
-          onPress: () => {
-            router.push({
-              pathname: '/grocery-multi-budget',
-              params: { 
-                location: selectedLocation,
-                locationName: getLocationName()
-              }
-            });
-          }
-        },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
+    // Navigate to grocery shopping with selected store
+    router.push({
+      pathname: '/grocery-shopping',
+      params: { 
+        location: selectedLocation,
+        locationName: getLocationName(),
+        store: store
+      }
+    });
   };
   
   const getLocationName = () => {

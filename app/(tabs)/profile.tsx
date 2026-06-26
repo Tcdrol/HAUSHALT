@@ -33,10 +33,10 @@ export default function ProfileScreen() {
         setUserProfile({
           full_name: user.user_metadata?.full_name || 'User',
           email: user.email || 'No email',
-          student_id: user.user_metadata?.student_id || 'N/A',
-          user_type: user.user_metadata?.user_type || 'student_private',
+          user_type: user.user_metadata?.user_type || 'student',
           location: user.user_metadata?.location || 'kitwe',
           household_size: 1,
+          accommodation_type: 'hostel',
         });
       }
     } catch (error) {
@@ -45,10 +45,10 @@ export default function ProfileScreen() {
       setUserProfile({
         full_name: user.user_metadata?.full_name || 'User',
         email: user.email || 'No email',
-        student_id: user.user_metadata?.student_id || 'N/A',
-        user_type: user.user_metadata?.user_type || 'student_private',
+        user_type: user.user_metadata?.user_type || 'student',
         location: user.user_metadata?.location || 'kitwe',
         household_size: 1,
+        accommodation_type: 'hostel',
       });
     } finally {
       setLoading(false);
@@ -135,7 +135,6 @@ export default function ProfileScreen() {
           </View>
           <ThemedText style={styles.name}>{userProfile?.full_name || 'Loading...'}</ThemedText>
           <ThemedText style={styles.email}>{userProfile?.email || 'Loading...'}</ThemedText>
-          <ThemedText style={styles.studentId}>Student ID: {userProfile?.student_id || 'N/A'}</ThemedText>
           
           <View style={styles.profileStats}>
             <View style={styles.statItem}>
@@ -143,12 +142,12 @@ export default function ProfileScreen() {
               <ThemedText style={styles.statText}>{userProfile?.location ? userProfile.location.charAt(0).toUpperCase() + userProfile.location.slice(1) : 'Loading...'}</ThemedText>
             </View>
             <View style={styles.statItem}>
-              <IconSymbol size={20} name="home" color="#10B981" />
-              <ThemedText style={styles.statText}>{userProfile?.user_type ? userProfile.user_type.replace('_', ' ') : 'Loading...'}</ThemedText>
+              <IconSymbol size={20} name="person.fill" color="#10B981" />
+              <ThemedText style={styles.statText}>{userProfile?.user_type ? userProfile.user_type.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : 'Loading...'}</ThemedText>
             </View>
             <View style={styles.statItem}>
-              <IconSymbol size={20} name="person.2.fill" color="#8B5CF6" />
-              <ThemedText style={styles.statText}>{userProfile?.household_size || 1} {userProfile?.household_size === 1 ? 'person' : 'people'}</ThemedText>
+              <IconSymbol size={20} name="house.fill" color="#8B5CF6" />
+              <ThemedText style={styles.statText}>{userProfile?.accommodation_type ? userProfile.accommodation_type.charAt(0).toUpperCase() + userProfile.accommodation_type.slice(1) : 'Loading...'}</ThemedText>
             </View>
           </View>
         </Card>
@@ -199,15 +198,7 @@ export default function ProfileScreen() {
           <View style={styles.infoContent}>
             <View style={styles.infoItem}>
               <ThemedText style={styles.infoLabel}>Member Since:</ThemedText>
-              <ThemedText style={styles.infoValue}>March 2025</ThemedText>
-            </View>
-            <View style={styles.infoItem}>
-              <ThemedText style={styles.infoLabel}>Account Type:</ThemedText>
-              <ThemedText style={styles.infoValue}>Premium Student</ThemedText>
-            </View>
-            <View style={styles.infoItem}>
-              <ThemedText style={styles.infoLabel}>Data Usage:</ThemedText>
-              <ThemedText style={styles.infoValue}>2.3 GB / 10 GB</ThemedText>
+              <ThemedText style={styles.infoValue}>2025</ThemedText>
             </View>
           </View>
         </Card>

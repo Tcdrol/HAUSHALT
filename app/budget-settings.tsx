@@ -12,15 +12,25 @@ import { BudgetService } from '@/lib/services/budget-service';
 import { ProfileService } from '@/lib/services/profile-service';
 import { useRouter } from 'expo-router';
 
+interface BudgetCategory {
+  id: string;
+  name: string;
+  amount: string;
+  color: string;
+}
+
 export default function BudgetSettingsScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [monthlyIncome, setMonthlyIncome] = useState('2000');
+  const [monthlyIncome, setMonthlyIncome] = useState('');
   const [budgetAlerts, setBudgetAlerts] = useState(true);
   const [autoCategorize, setAutoCategorize] = useState(true);
   const [currency, setCurrency] = useState('ZMW');
+  const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryAmount, setNewCategoryAmount] = useState('');
 
   // Load user preferences from Supabase
   useEffect(() => {
@@ -44,7 +54,33 @@ export default function BudgetSettingsScreen() {
       // Load profile for income
       const profileResult = await ProfileService.getProfile(user.id);
       if (profileResult.success && profileResult.data) {
-        setMonthlyIncome(profileResult.data.monthly_income?.toString() || '2000');
+        setMonthlyIncome(profileResult.data.monthly_income?.toString() || '');
+      }
+
+      // Load existing budget categories for current month
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      const categoriesResult = await BudgetService.getBudgetCategories(user.id, currentMonth, currentYear);
+      if (categoriesResult.success && categoriesResult.data && categoriesResult.data.length > 0) {
+        const loadedCategories = categoriesResult.data.map(cat => ({
+          id: cat.id,
+          name: cat.name,
+          amount: cat.planned_amount.toString(),
+          color: cat.color,
+        }));
+        setBudgetCategories(loadedCategories);
+      } else {
+        // Load most recent budget from any month
+        const recentResult = await BudgetService.getMostRecentBudget(user.id);
+        if (recentResult.success && recentResult.data && recentResult.data.length > 0) {
+        const recentCategories = recentResult.data.map((cat: any) => ({
+          id: cat.id,
+          name: cat.name,
+          amount: cat.planned_amount.toString(),
+          color: cat.color,
+        }));
+          setBudgetCategories(recentCategories);
+        }
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -69,8 +105,6 @@ export default function BudgetSettingsScreen() {
           currency,
           budget_alerts: budgetAlerts,
           auto_categorize: autoCategorize,
-          default_location: 'kitwe',
-          monthly_budget: parseFloat(monthlyIncome) || 2000,
         }
       );
 
@@ -81,6 +115,24 @@ export default function BudgetSettingsScreen() {
           monthly_income: parseFloat(monthlyIncome) || 2000,
         }
       );
+
+      // Save budget categories
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      
+      for (const category of budgetCategories) {
+        if (category.amount && parseFloat(category.amount) > 0) {
+          await BudgetService.upsertBudgetCategory({
+            user_id: user.id,
+            name: category.name,
+            planned_amount: parseFloat(category.amount),
+            spent_amount: 0,
+            color: category.color,
+            month: currentMonth,
+            year: currentYear,
+          });
+        }
+      }
 
       if (prefResult.success && profileResult.success) {
         Alert.alert(
@@ -100,6 +152,35 @@ export default function BudgetSettingsScreen() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const addCategory = () => {
+    if (newCategoryName.trim() && newCategoryAmount.trim()) {
+      const colors = ['#10B981', '#F59E0B', '#6366F1', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'];
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+      
+      setBudgetCategories([
+        ...budgetCategories,
+        {
+          id: Date.now().toString(),
+          name: newCategoryName.trim(),
+          amount: newCategoryAmount.trim(),
+          color: randomColor,
+        }
+      ]);
+      setNewCategoryName('');
+      setNewCategoryAmount('');
+    }
+  };
+
+  const removeCategory = (id: string) => {
+    setBudgetCategories(budgetCategories.filter(cat => cat.id !== id));
+  };
+
+  const updateCategoryAmount = (id: string, amount: string) => {
+    setBudgetCategories(budgetCategories.map(cat => 
+      cat.id === id ? { ...cat, amount } : cat
+    ));
   };
 
   return (
@@ -191,21 +272,50 @@ export default function BudgetSettingsScreen() {
               <ThemedText style={styles.sectionTitle}>Budget Categories</ThemedText>
             </View>
             
-            <View style={styles.categoryItem}>
-              <ThemedText style={styles.categoryName}>Groceries</ThemedText>
-              <ThemedText style={styles.categoryPercentage}>45%</ThemedText>
-            </View>
-            <View style={styles.categoryItem}>
-              <ThemedText style={styles.categoryName}>Transport</ThemedText>
-              <ThemedText style={styles.categoryPercentage}>15%</ThemedText>
-            </View>
-            <View style={styles.categoryItem}>
-              <ThemedText style={styles.categoryName}>Rent</ThemedText>
-              <ThemedText style={styles.categoryPercentage}>30%</ThemedText>
-            </View>
-            <View style={styles.categoryItem}>
-              <ThemedText style={styles.categoryName}>Personal</ThemedText>
-              <ThemedText style={styles.categoryPercentage}>10%</ThemedText>
+            {budgetCategories.map((category) => (
+              <View key={category.id} style={styles.categoryEditItem}>
+                <View style={styles.categoryInfoRow}>
+                  <View style={[styles.categoryColorIndicator, { backgroundColor: category.color }]} />
+                  <ThemedText style={styles.categoryName}>{category.name}</ThemedText>
+                </View>
+                <View style={styles.categoryAmountRow}>
+                  <Input
+                    placeholder="Amount"
+                    value={category.amount}
+                    onChangeText={(value) => updateCategoryAmount(category.id, value)}
+                    keyboardType="numeric"
+                    style={styles.categoryAmountInput}
+                  />
+                  <TouchableOpacity
+                    style={styles.removeCategoryButton}
+                    onPress={() => removeCategory(category.id)}
+                  >
+                    <IconSymbol size={20} name="trash.fill" color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+            
+            <View style={styles.addCategorySection}>
+              <Input
+                label="New Category Name"
+                placeholder="Enter category name"
+                value={newCategoryName}
+                onChangeText={setNewCategoryName}
+              />
+              <Input
+                label="Budget Amount"
+                placeholder="Enter amount"
+                value={newCategoryAmount}
+                onChangeText={setNewCategoryAmount}
+                keyboardType="numeric"
+              />
+              <Button
+                title="Add Category"
+                onPress={addCategory}
+                size="small"
+                disabled={!newCategoryName.trim() || !newCategoryAmount.trim()}
+              />
             </View>
           </View>
           
@@ -343,6 +453,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#0066CC',
     fontWeight: '600',
+  },
+  categoryInfo: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.7,
+    fontStyle: 'italic',
+  },
+  categoryEditItem: {
+    marginBottom: 15,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#404040',
+  },
+  categoryInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  categoryColorIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  categoryAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  categoryAmountInput: {
+    flex: 1,
+  },
+  removeCategoryButton: {
+    padding: 8,
+  },
+  addCategorySection: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#404040',
   },
   saveButton: {
     marginTop: 20,

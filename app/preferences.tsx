@@ -15,10 +15,8 @@ export default function PreferencesScreen() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [defaultLocation, setDefaultLocation] = useState('kitwe');
-  const [defaultStore, setDefaultStore] = useState('shoprite');
+  const [defaultLocation, setDefaultLocation] = useState('');
   const [theme, setTheme] = useState('dark');
-  const [language, setLanguage] = useState('english');
   const [budgetReminders, setBudgetReminders] = useState(true);
   const [priceAlerts, setPriceAlerts] = useState(true);
   const [groupUpdates, setGroupUpdates] = useState(true);
@@ -36,10 +34,8 @@ export default function PreferencesScreen() {
     try {
       const result = await BudgetService.getUserPreferences(user.id);
       if (result.success && result.data) {
-        setDefaultLocation(result.data.default_location || 'kitwe');
-        setDefaultStore(result.data.default_store || 'shoprite');
+        setDefaultLocation(result.data.default_location || '');
         setTheme(result.data.theme || 'dark');
-        setLanguage(result.data.language || 'english');
         setBudgetReminders(result.data.budget_reminders !== false);
         setPriceAlerts(result.data.price_alerts !== false);
         setGroupUpdates(result.data.group_updates !== false);
@@ -64,9 +60,7 @@ export default function PreferencesScreen() {
         {
           user_id: user.id,
           default_location: defaultLocation,
-          default_store: defaultStore,
           theme,
-          language,
           budget_reminders: budgetReminders,
           price_alerts: priceAlerts,
           group_updates: groupUpdates,
@@ -134,28 +128,6 @@ export default function PreferencesScreen() {
               </View>
             </View>
             
-            <View style={styles.settingItem}>
-              <ThemedText style={styles.settingLabel}>Default Store</ThemedText>
-              <View style={styles.options}>
-                {['shoprite', 'picknpay', 'game', 'local_market'].map((store) => (
-                  <TouchableOpacity
-                    key={store}
-                    style={[
-                      styles.option,
-                      defaultStore === store && styles.selectedOption
-                    ]}
-                    onPress={() => setDefaultStore(store)}
-                  >
-                    <ThemedText style={[
-                      styles.optionText,
-                      defaultStore === store && styles.selectedOptionText
-                    ]}>
-                      {store.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </ThemedText>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
           </View>
           
           <View style={styles.section}>
@@ -181,29 +153,6 @@ export default function PreferencesScreen() {
                       theme === themeOption && styles.selectedOptionText
                     ]}>
                       {themeOption.charAt(0).toUpperCase() + themeOption.slice(1)}
-                    </ThemedText>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-            
-            <View style={styles.settingItem}>
-              <ThemedText style={styles.settingLabel}>Language</ThemedText>
-              <View style={styles.options}>
-                {['english', 'bemba'].map((lang) => (
-                  <TouchableOpacity
-                    key={lang}
-                    style={[
-                      styles.option,
-                      language === lang && styles.selectedOption
-                    ]}
-                    onPress={() => setLanguage(lang)}
-                  >
-                    <ThemedText style={[
-                      styles.optionText,
-                      language === lang && styles.selectedOptionText
-                    ]}>
-                      {lang.charAt(0).toUpperCase() + lang.slice(1)}
                     </ThemedText>
                   </TouchableOpacity>
                 ))}

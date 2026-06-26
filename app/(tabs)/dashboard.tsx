@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,12 +10,15 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/app-context';
 import { useRealtimeBudgetCategories, useRealtimeExpenses } from '@/hooks/use-realtime-data';
 import { BudgetService } from '@/lib/services/budget-service';
+import { GroupService } from '@/lib/services/group-service';
 
 export default function DashboardScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [budgetOverview, setBudgetOverview] = useState<any>(null);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [groupBalances, setGroupBalances] = useState<any>(null);
   
   // Real-time data hooks
   const { data: recentExpenses } = useRealtimeExpenses(user?.id || '');
@@ -25,13 +28,7 @@ export default function DashboardScreen() {
     new Date().getFullYear()
   );
 
-  useEffect(() => {
-    if (user) {
-      loadBudgetOverview();
-    }
-  }, [user, budgetCategories]);
-
-  const loadBudgetOverview = async () => {
+  const loadBudgetOverview = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -47,7 +44,63 @@ export default function DashboardScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  const calculateGroupBalances = useCallback((groupData: any) => {
+    const expenses = groupData.group_expenses || [];
+    const members = groupData.group_members || [];
+    
+    let totalOwed = 0;
+    let totalOwedToYou = 0;
+    
+    expenses.forEach((expense: any) => {
+      const splitAmount = expense.amount / expense.split_between.length;
+      
+      if (expense.paid_by === user?.id) {
+        // You paid this expense
+        totalOwedToYou += (expense.amount - splitAmount);
+      } else if (expense.split_between.includes(user?.id)) {
+        // Someone else paid and you owe your share
+        totalOwed += splitAmount;
+      }
+    });
+    
+    setGroupBalances({
+      totalOwed,
+      totalOwedToYou,
+      memberCount: members.length,
+      groupName: groupData.name
+    });
+  }, [user]);
+
+  const loadUserGroups = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      const result = await GroupService.getUserGroups(user.id);
+      if (result.success && result.data) {
+        setGroups(result.data);
+        
+        // Calculate balances for the first group (if any)
+        if (result.data.length > 0) {
+          const firstGroup = result.data[0];
+          const groupDetails = await GroupService.getGroupDetails(firstGroup.id);
+          if (groupDetails.success && groupDetails.data) {
+            calculateGroupBalances(groupDetails.data);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user groups:', error);
+    }
+  }, [user, calculateGroupBalances]);
+
+  useEffect(() => {
+    if (user) {
+      loadBudgetOverview();
+      loadUserGroups();
+    }
+  }, [user, budgetCategories, loadBudgetOverview, loadUserGroups]);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -104,7 +157,7 @@ export default function DashboardScreen() {
         
         {budgetOverview && (
           <Card variant="elevated" style={styles.budgetCard}>
-            <ThemedText style={styles.budgetTitle}>This month&apos;s spending</ThemedText>
+            <ThemedText style={styles.budgetTitle}>This month's spending</ThemedText>
             <View style={styles.budgetDetails}>
               <ThemedText style={styles.budgetItem}>Budget: {formatCurrency(budgetOverview.totalBudget)}</ThemedText>
               <ThemedText style={styles.budgetItem}>Spent: {formatCurrency(budgetOverview.totalSpent)}</ThemedText>
@@ -126,6 +179,23 @@ export default function DashboardScreen() {
                 <ThemedText style={styles.overBudgetText}>
                   Over budget by {formatCurrency(budgetOverview.totalSpent - budgetOverview.totalBudget)}
                 </ThemedText>
+              </View>
+            )}
+            
+            {budgetCategories && budgetCategories.length > 0 && (
+              <View style={styles.categoriesSection}>
+                <ThemedText style={styles.categoriesTitle}>Budget Categories</ThemedText>
+                {budgetCategories.slice(0, 4).map((category: any) => (
+                  <View key={category.id} style={styles.categoryRow}>
+                    <View style={styles.categoryInfo}>
+                      <View style={[styles.categoryColorDot, { backgroundColor: category.color }]} />
+                      <ThemedText style={styles.categoryName}>{category.name}</ThemedText>
+                    </View>
+                    <ThemedText style={styles.categoryAmount}>
+                      {formatCurrency(category.spent_amount)} / {formatCurrency(category.planned_amount)}
+                    </ThemedText>
+                  </View>
+                ))}
               </View>
             )}
           </Card>
@@ -165,8 +235,25 @@ export default function DashboardScreen() {
             <ThemedText style={styles.sectionTitle}>Groups</ThemedText>
             <IconSymbol size={20} name="person.2.fill" color="#0066CC" />
           </View>
-          <ThemedText style={styles.groupName}>Diggers Lodge • 4 members</ThemedText>
-          <ThemedText style={styles.groupOwes}>You owe K125</ThemedText>
+          
+          {groups.length === 0 ? (
+            <ThemedText style={styles.noGroupsText}>No groups yet. Create a group to track shared expenses!</ThemedText>
+          ) : groupBalances ? (
+            <>
+              <ThemedText style={styles.groupName}>{groupBalances.groupName} • {groupBalances.memberCount} members</ThemedText>
+              {groupBalances.totalOwed > 0 && (
+                <ThemedText style={styles.groupOwes}>You owe {formatCurrency(groupBalances.totalOwed)}</ThemedText>
+              )}
+              {groupBalances.totalOwedToYou > 0 && (
+                <ThemedText style={styles.groupOwedToYou}>You are owed {formatCurrency(groupBalances.totalOwedToYou)}</ThemedText>
+              )}
+              {groupBalances.totalOwed === 0 && groupBalances.totalOwedToYou === 0 && (
+                <ThemedText style={styles.groupSettled}>All settled up!</ThemedText>
+              )}
+            </>
+          ) : (
+            <ThemedText style={styles.loadingGroupsText}>Loading group data...</ThemedText>
+          )}
           
           <Button
             title="View All Groups"
@@ -284,7 +371,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#EF4444',
     fontWeight: '600',
+    marginBottom: 5,
+  },
+  groupOwedToYou: {
+    fontSize: 16,
+    color: '#10B981',
+    fontWeight: '600',
+    marginBottom: 5,
+  },
+  groupSettled: {
+    fontSize: 16,
+    color: '#10B981',
+    fontWeight: '600',
     marginBottom: 15,
+  },
+  noGroupsText: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#FFFFFF',
+    opacity: 0.7,
+    paddingVertical: 20,
+  },
+  loadingGroupsText: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#FFFFFF',
+    opacity: 0.7,
+    paddingVertical: 20,
   },
   loadingText: {
     fontSize: 16,
@@ -313,5 +426,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#EF4444',
     marginLeft: 8,
+  },
+  categoriesSection: {
+    marginTop: 20,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#404040',
+  },
+  categoriesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 10,
+    color: '#FFFFFF',
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  categoryInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  categoryColorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  categoryName: {
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  categoryAmount: {
+    fontSize: 14,
+    color: '#0066CC',
+    fontWeight: '600',
   },
 });

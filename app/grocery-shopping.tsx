@@ -1,20 +1,19 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View, TextInput, Alert, TouchableOpacity } from 'react-native';
+import { Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { 
-  GroceryItem, 
-  ShoppingListItem, 
-  GroceryTrip,
-  ZAMBIAN_STORES, 
-  ZAMBIAN_LOCATIONS 
+import {
+  GroceryItem,
+  ShoppingListItem,
+  ZAMBIAN_LOCATIONS,
+  ZAMBIAN_STORES
 } from '@/utils/groceryData';
-import { suggestItemPrice, searchGroceryItems, getPopularItems } from '@/utils/priceSuggestions';
+import { getPopularItems, searchGroceryItems, suggestItemPrice } from '@/utils/priceSuggestions';
 
 export default function GroceryShoppingScreen() {
   const params = useLocalSearchParams<{ store: string; location: string }>();
@@ -25,6 +24,11 @@ export default function GroceryShoppingScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<GroceryItem | null>(null);
+  const [showCustomItemForm, setShowCustomItemForm] = useState(false);
+  const [customItemName, setCustomItemName] = useState('');
+  const [customItemPrice, setCustomItemPrice] = useState('');
+  const [customItemQuantity, setCustomItemQuantity] = useState('1');
+  const [customItemCategory, setCustomItemCategory] = useState<string>('other');
   
   const storeName = ZAMBIAN_STORES.find(s => s.id === store)?.name || store;
   const locationName = ZAMBIAN_LOCATIONS.find(l => l.id === location)?.name || location;
@@ -49,6 +53,42 @@ export default function GroceryShoppingScreen() {
   
   const removeItemFromList = (itemId: string) => {
     setShoppingList(prev => prev.filter(item => item.id !== itemId));
+  };
+  
+  const addCustomItem = () => {
+    if (!customItemName.trim() || !customItemPrice.trim()) {
+      Alert.alert('Error', 'Please enter item name and price');
+      return;
+    }
+
+    const price = parseFloat(customItemPrice);
+    if (isNaN(price) || price <= 0) {
+      Alert.alert('Error', 'Please enter a valid price');
+      return;
+    }
+
+    const newItem: ShoppingListItem = {
+      id: Date.now().toString(),
+      item: {
+        id: Date.now().toString(),
+        name: customItemName.trim(),
+        category: customItemCategory as GroceryItem['category'],
+        unit: 'item',
+        baselinePrice: price,
+        lastUpdated: new Date(),
+      },
+      suggestedPrice: price,
+      actualPrice: price,
+      quantity: parseInt(customItemQuantity) || 1,
+      added: new Date(),
+    };
+
+    setShoppingList([...shoppingList, newItem]);
+    setCustomItemName('');
+    setCustomItemPrice('');
+    setCustomItemQuantity('1');
+    setCustomItemCategory('other');
+    setShowCustomItemForm(false);
   };
   
   const calculateEstimatedTotal = () => {
@@ -165,6 +205,87 @@ export default function GroceryShoppingScreen() {
             </Card>
           )}
         </View>
+        
+        {/* Custom Item Form */}
+        {showCustomItemForm && (
+          <Card style={styles.customItemCard}>
+            <ThemedText style={styles.customItemTitle}>Add Custom Item</ThemedText>
+            
+            <TextInput
+              style={styles.customItemInput}
+              placeholder="Item name"
+              placeholderTextColor="#666"
+              value={customItemName}
+              onChangeText={setCustomItemName}
+            />
+            
+            <View style={styles.customItemRow}>
+              <TextInput
+                style={[styles.customItemInput, styles.halfInput]}
+                placeholder="Price (ZMW)"
+                placeholderTextColor="#666"
+                value={customItemPrice}
+                onChangeText={setCustomItemPrice}
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={[styles.customItemInput, styles.halfInput]}
+                placeholder="Qty"
+                placeholderTextColor="#666"
+                value={customItemQuantity}
+                onChangeText={setCustomItemQuantity}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.categorySection}>
+              <ThemedText style={styles.categoryLabel}>Category</ThemedText>
+              <View style={styles.categoryOptions}>
+                {['grains', 'oils', 'vegetables', 'proteins', 'dairy', 'household', 'other'].map((category) => (
+                  <TouchableOpacity
+                    key={category}
+                    style={[
+                      styles.categoryOption,
+                      customItemCategory === category && styles.selectedCategoryOption
+                    ]}
+                    onPress={() => setCustomItemCategory(category)}
+                  >
+                    <ThemedText style={[
+                      styles.categoryOptionText,
+                      customItemCategory === category && styles.selectedCategoryOptionText
+                    ]}>
+                      {category.charAt(0).toUpperCase() + category.slice(1)}
+                    </ThemedText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            
+            <View style={styles.customItemButtons}>
+              <Button
+                title="Cancel"
+                onPress={() => setShowCustomItemForm(false)}
+                variant="outline"
+                size="small"
+              />
+              <Button
+                title="Add Item"
+                onPress={addCustomItem}
+                size="small"
+              />
+            </View>
+          </Card>
+        )}
+        
+        {!showCustomItemForm && (
+          <Button
+            title="+ Add Custom Item"
+            onPress={() => setShowCustomItemForm(true)}
+            variant="outline"
+            size="medium"
+            style={styles.addCustomButton}
+          />
+        )}
         
         <View style={styles.spacer} />
         
@@ -317,5 +438,77 @@ const styles = StyleSheet.create({
   },
   spacer: {
     height: 20,
+  },
+  customItemCard: {
+    padding: 20,
+    backgroundColor: '#2A2A2A',
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#404040',
+  },
+  customItemTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 15,
+    color: '#FFFFFF',
+  },
+  customItemInput: {
+    backgroundColor: '#1A1A1A',
+    color: '#FFFFFF',
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#404040',
+    marginBottom: 10,
+  },
+  customItemRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  halfInput: {
+    flex: 1,
+  },
+  categorySection: {
+    marginBottom: 15,
+  },
+  categoryLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+    color: '#FFFFFF',
+  },
+  categoryOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryOption: {
+    padding: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#404040',
+    backgroundColor: '#333333',
+  },
+  selectedCategoryOption: {
+    backgroundColor: '#0066CC',
+    borderColor: '#0066CC',
+  },
+  categoryOptionText: {
+    fontSize: 12,
+    color: '#FFFFFF',
+  },
+  selectedCategoryOptionText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  customItemButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  addCustomButton: {
+    marginBottom: 20,
   },
 });

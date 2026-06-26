@@ -1,8 +1,15 @@
 import { createClient, RealtimeChannel } from '@supabase/supabase-js';
 
-// Replace these with your actual Supabase project details
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://your-project.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-key';
+// Supabase configuration from environment variables
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+// Validate that required environment variables are set
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Missing required Supabase environment variables. Please ensure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are set in your .env file.'
+  );
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {

@@ -6,10 +6,10 @@ type UserProfile = {
   user_id: string;
   full_name: string;
   email: string;
-  student_id: string;
-  user_type: 'student_hostel' | 'student_private' | 'professional' | 'sharing_roommates';
+  user_type: 'student' | 'household' | 'sharing_roommates';
   location: 'kitwe' | 'lusaka' | 'other';
   household_size: number;
+  accommodation_type: 'hostel' | 'apartment' | 'house' | 'shared';
   monthly_income: number | null;
   created_at: string;
   updated_at: string;
@@ -19,18 +19,19 @@ type UserProfileInsert = {
   user_id: string;
   full_name: string;
   email: string;
-  student_id: string;
-  user_type: 'student_hostel' | 'student_private' | 'professional' | 'sharing_roommates';
+  user_type: 'student' | 'household' | 'sharing_roommates';
   location: 'kitwe' | 'lusaka' | 'other';
   household_size?: number;
+  accommodation_type?: 'hostel' | 'apartment' | 'house' | 'shared';
   monthly_income?: number;
 };
 
 type UserProfileUpdate = {
   full_name?: string;
-  user_type?: 'student_hostel' | 'student_private' | 'professional' | 'sharing_roommates';
+  user_type?: 'student' | 'household' | 'sharing_roommates';
   location?: 'kitwe' | 'lusaka' | 'other';
   household_size?: number;
+  accommodation_type?: 'hostel' | 'apartment' | 'house' | 'shared';
   monthly_income?: number;
 };
 
@@ -172,7 +173,7 @@ export class ProfileService {
     try {
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('id, user_id, full_name, email, student_id')
+        .select('id, user_id, full_name, email')
         .or(`email.ilike.%${query}%,full_name.ilike.%${query}%`)
         .neq('user_id', currentUserId)
         .limit(10);
