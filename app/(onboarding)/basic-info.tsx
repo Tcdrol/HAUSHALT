@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useRouter } from 'expo-router';
 
@@ -17,13 +16,13 @@ export default function BasicInfoScreen() {
     location: '',
     householdSize: 1,
     otherLocation: '',
-    accommodationType: 'hostel',
   });
 
   const userTypes = [
-    { value: 'student', label: 'Student' },
-    { value: 'household', label: 'Household' },
-    { value: 'sharing_roommates', label: 'Sharing Roommates' },
+    { value: 'student_hostel', label: 'Student in hostel' },
+    { value: 'student_private', label: 'Student renting privately' },
+    { value: 'professional', label: 'Young professional' },
+    { value: 'sharing_roommates', label: 'Sharing with roommates' },
   ];
 
   const locations = [
@@ -60,50 +59,43 @@ export default function BasicInfoScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.content}>
-        <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <ScrollView className="flex-1 px-5 py-6">
+        <View className="mb-8">
+          <ThemedText className="text-text text-3xl font-bold mb-2">
             Tell us about yourself
           </ThemedText>
-          <ThemedText style={styles.subtitle}>
+          <ThemedText className="text-text-secondary text-base">
             This helps us suggest personalized budgets
           </ThemedText>
         </View>
         
-        <Card style={styles.formCard}>
-          <View style={styles.formGroup}>
-            <ThemedText style={styles.label}>Monthly Income (Optional)</ThemedText>
+        <View className="bg-surface rounded-2xl p-6 border border-border mb-8">
+          <View className="mb-6">
+            <ThemedText className="text-text text-base font-semibold mb-3">Monthly Income (Optional)</ThemedText>
             <Input
               placeholder="Enter your monthly income"
               value={formData.monthlyIncome}
               onChangeText={(text) => setFormData({...formData, monthlyIncome: text})}
               keyboardType="numeric"
-              style={styles.input}
             />
           </View>
           
-          <View style={styles.formGroup}>
-            <ThemedText style={styles.label}>Your Situation *</ThemedText>
-            <View style={styles.options}>
+          <View className="mb-6">
+            <ThemedText className="text-text text-base font-semibold mb-3">Your Situation *</ThemedText>
+            <View className="gap-3">
               {userTypes.map((type) => (
                 <TouchableOpacity
                   key={type.value}
-                  style={[
-                    styles.option,
-                    formData.userType === type.value && styles.selectedOption
-                  ]}
+                  className={`flex-row items-center py-3 px-4 rounded-lg border ${formData.userType === type.value ? 'bg-primary border-primary' : 'bg-background border-border'}`}
                   onPress={() => setFormData({...formData, userType: type.value})}
                 >
-                  <View style={[
-                    styles.radioCircle,
-                    formData.userType === type.value && styles.radioCircleSelected
-                  ]}>
+                  <View className={`w-5 h-5 rounded-full border-2 mr-3 justify-center items-center ${formData.userType === type.value ? 'border-white' : 'border-text-secondary'}`}>
                     {formData.userType === type.value && (
-                      <View style={styles.radioDot} />
+                      <View className="w-2.5 h-2.5 rounded-full bg-white" />
                     )}
                   </View>
-                  <ThemedText style={styles.optionText}>
+                  <ThemedText className={`text-base flex-1 ${formData.userType === type.value ? 'text-white' : 'text-text'}`}>
                     {type.label}
                   </ThemedText>
                 </TouchableOpacity>
@@ -111,27 +103,21 @@ export default function BasicInfoScreen() {
             </View>
           </View>
           
-          <View style={styles.formGroup}>
-            <ThemedText style={styles.label}>Location *</ThemedText>
-            <View style={styles.options}>
+          <View className="mb-6">
+            <ThemedText className="text-text text-base font-semibold mb-3">Location *</ThemedText>
+            <View className="gap-3">
               {locations.map((location) => (
                 <TouchableOpacity
                   key={location.value}
-                  style={[
-                    styles.option,
-                    formData.location === location.value && styles.selectedOption
-                  ]}
+                  className={`flex-row items-center py-3 px-4 rounded-lg border ${formData.location === location.value ? 'bg-primary border-primary' : 'bg-background border-border'}`}
                   onPress={() => setFormData({...formData, location: location.value})}
                 >
-                  <View style={[
-                    styles.radioCircle,
-                    formData.location === location.value && styles.radioCircleSelected
-                  ]}>
+                  <View className={`w-5 h-5 rounded-full border-2 mr-3 justify-center items-center ${formData.location === location.value ? 'border-white' : 'border-text-secondary'}`}>
                     {formData.location === location.value && (
-                      <View style={styles.radioDot} />
+                      <View className="w-2.5 h-2.5 rounded-full bg-white" />
                     )}
                   </View>
-                  <ThemedText style={styles.optionText}>
+                  <ThemedText className={`text-base flex-1 ${formData.location === location.value ? 'text-white' : 'text-text'}`}>
                     {location.label}
                   </ThemedText>
                 </TouchableOpacity>
@@ -143,167 +129,38 @@ export default function BasicInfoScreen() {
                 placeholder="Enter your location"
                 value={formData.otherLocation}
                 onChangeText={(text) => setFormData({...formData, otherLocation: text})}
-                style={styles.otherLocationInput}
+                className="mt-4"
               />
             )}
           </View>
           
-          <View style={styles.formGroup}>
-            <ThemedText style={styles.label}>Accommodation Type</ThemedText>
-            <View style={styles.options}>
-              {['hostel', 'apartment', 'house', 'shared'].map((type) => (
+          <View className="mb-2">
+            <ThemedText className="text-text text-base font-semibold mb-3">People Sharing Expenses</ThemedText>
+            <View className="flex-row flex-wrap gap-2.5">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((size) => (
                 <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.option,
-                    formData.accommodationType === type && styles.selectedOption
-                  ]}
-                  onPress={() => setFormData({...formData, accommodationType: type})}
+                  key={size}
+                  className={`w-12 h-12 rounded-lg border justify-center items-center ${formData.householdSize === size ? 'bg-primary border-primary' : 'bg-background border-border'}`}
+                  onPress={() => setFormData({...formData, householdSize: size})}
                 >
-                  <View style={[
-                    styles.radioCircle,
-                    formData.accommodationType === type && styles.radioCircleSelected
-                  ]}>
-                    {formData.accommodationType === type && (
-                      <View style={styles.radioDot} />
-                    )}
-                  </View>
-                  <ThemedText style={styles.optionText}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  <ThemedText className={`text-lg font-semibold ${formData.householdSize === size ? 'text-white' : 'text-text'}`}>
+                    {size}
                   </ThemedText>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
-        </Card>
+        </View>
         
         <Button
           title={loading ? "Saving..." : "Continue"}
           onPress={handleContinue}
           size="large"
-          style={styles.button}
+          className="w-full"
           disabled={loading}
         />
-      </ThemedView>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  header: {
-    marginBottom: 30,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#FFFFFF',
-  },
-  subtitle: {
-    fontSize: 16,
-    opacity: 0.8,
-    marginBottom: 30,
-    color: '#FFFFFF',
-  },
-  formCard: {
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#404040',
-    backgroundColor: '#2A2A2A',
-    marginBottom: 30,
-  },
-  formGroup: {
-    marginBottom: 25,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#FFFFFF',
-  },
-  input: {
-    marginBottom: 10,
-  },
-  otherLocationInput: {
-    marginTop: 10,
-  },
-  options: {
-    gap: 12,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#404040',
-    backgroundColor: '#333333',
-  },
-  selectedOption: {
-    backgroundColor: '#0066CC',
-    borderColor: '#0066CC',
-  },
-  radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#666666',
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioCircleSelected: {
-    borderColor: '#FFFFFF',
-  },
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#FFFFFF',
-  },
-  optionText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    flex: 1,
-  },
-  householdOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  householdOption: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#404040',
-    backgroundColor: '#333333',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectedHouseholdOption: {
-    backgroundColor: '#0066CC',
-    borderColor: '#0066CC',
-  },
-  householdNumber: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  selectedHouseholdNumber: {
-    color: '#FFFFFF',
-  },
-  button: {
-    marginTop: 20,
-  },
-});

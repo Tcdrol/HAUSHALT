@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/app-context';
 import { ProfileService } from '@/lib/services/profile-service';
+import { cn } from '@/utils/cn';
 import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
@@ -33,10 +33,10 @@ export default function ProfileScreen() {
         setUserProfile({
           full_name: user.user_metadata?.full_name || 'User',
           email: user.email || 'No email',
-          user_type: user.user_metadata?.user_type || 'student',
+          student_id: user.user_metadata?.student_id || 'N/A',
+          user_type: user.user_metadata?.user_type || 'student_private',
           location: user.user_metadata?.location || 'kitwe',
           household_size: 1,
-          accommodation_type: 'hostel',
         });
       }
     } catch (error) {
@@ -45,10 +45,10 @@ export default function ProfileScreen() {
       setUserProfile({
         full_name: user.user_metadata?.full_name || 'User',
         email: user.email || 'No email',
-        user_type: user.user_metadata?.user_type || 'student',
+        student_id: user.user_metadata?.student_id || 'N/A',
+        user_type: user.user_metadata?.user_type || 'student_private',
         location: user.user_metadata?.location || 'kitwe',
         household_size: 1,
-        accommodation_type: 'hostel',
       });
     } finally {
       setLoading(false);
@@ -56,41 +56,48 @@ export default function ProfileScreen() {
   };
 
   const menuItems = [
-    { 
-      title: 'Edit Profile', 
+    {
+      title: 'Edit Profile',
       icon: 'person.fill' as const,
+      color: '#3b82f6',
       onPress: () => router.push('/edit-profile')
     },
-    { 
-      title: 'My Budget Settings', 
+    {
+      title: 'My Budget Settings',
       icon: 'dollarsign.circle.fill' as const,
+      color: '#14b8a6',
       onPress: () => router.push('/budget-settings')
     },
-    { 
-      title: 'Location & Preferences', 
+    {
+      title: 'Location & Preferences',
       icon: 'location.fill' as const,
+      color: '#f59e0b',
       onPress: () => router.push('/preferences')
     },
-    { 
-      title: 'Export Data', 
+    {
+      title: 'Export Data',
       icon: 'download.fill' as const,
+      color: '#8b5cf6',
       onPress: () => handleExportData()
     },
-    { 
-      title: 'Privacy & Security', 
+    {
+      title: 'Privacy & Security',
       icon: 'shield.fill' as const,
+      color: '#22c55e',
       onPress: () => router.push('/privacy')
     },
-    { 
-      title: 'Help & Feedback', 
+    {
+      title: 'Help & Feedback',
       icon: 'questionmark.circle.fill' as const,
+      color: '#64748b',
       onPress: () => router.push('/help')
     },
-    { 
-      title: 'Log Out', 
+    {
+      title: 'Log Out',
       icon: 'arrow.up.square.fill' as const,
+      color: '#ef4444',
       onPress: () => handleLogout(),
-      isDestructive: true 
+      isDestructive: true
     },
   ];
 
@@ -121,226 +128,160 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.content}>
-        <View style={styles.header}>
-          <IconSymbol size={24} name="person.fill" color="#FFFFFF" />
-          <ThemedText style={styles.title}>Profile</ThemedText>
-          <IconSymbol size={24} name="gear.fill" color="#FFFFFF" />
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      {/* Header */}
+      <View className="px-5 pt-4 pb-6">
+        <View className="flex-row justify-between items-center">
+          <View>
+            <ThemedText className="text-text-muted text-sm uppercase tracking-wider">My Account</ThemedText>
+            <ThemedText className="text-text text-2xl font-bold mt-1">Profile</ThemedText>
+          </View>
+          <TouchableOpacity
+            onPress={() => router.push('/preferences')}
+            className="w-12 h-12 bg-surface rounded-full items-center justify-center border border-border"
+          >
+            <IconSymbol size={24} name="gear.fill" color="#94a3b8" />
+          </TouchableOpacity>
         </View>
-        
-        <Card variant="elevated" style={styles.profileCard}>
-          <View style={styles.avatarContainer}>
-            <IconSymbol size={60} name="person.fill" color="#0066CC" />
+      </View>
+
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+        {/* Profile Card */}
+        <View className="mx-5 mb-6">
+          <View className="bg-surface rounded-2xl p-6 border border-border items-center">
+            {/* Avatar */}
+            <View className="w-24 h-24 bg-primary/20 rounded-full items-center justify-center mb-4 border-2 border-primary/30">
+              <IconSymbol size={40} name="person.fill" color="#14b8a6" />
+            </View>
+
+            {/* User Info */}
+            <ThemedText className="text-text text-2xl font-bold mb-1">
+              {userProfile?.full_name || 'Loading...'}
+            </ThemedText>
+            <ThemedText className="text-text-secondary text-base mb-1">
+              {userProfile?.email || 'Loading...'}
+            </ThemedText>
+            <ThemedText className="text-text-muted text-sm">
+              ID: {userProfile?.student_id || 'N/A'}
+            </ThemedText>
+
+            {/* Profile Stats */}
+            <View className="flex-row justify-around w-full mt-6 pt-6 border-t border-border">
+              <View className="items-center">
+                <View className="w-10 h-10 bg-warning/20 rounded-xl items-center justify-center mb-2">
+                  <IconSymbol size={20} name="location.fill" color="#f59e0b" />
+                </View>
+                <ThemedText className="text-text text-sm font-medium">
+                  {userProfile?.location ? userProfile.location.charAt(0).toUpperCase() + userProfile.location.slice(1) : 'Loading...'}
+                </ThemedText>
+                <ThemedText className="text-text-muted text-xs">Location</ThemedText>
+              </View>
+              <View className="items-center">
+                <View className="w-10 h-10 bg-success/20 rounded-xl items-center justify-center mb-2">
+                  <IconSymbol size={20} name="home" color="#22c55e" />
+                </View>
+                <ThemedText className="text-text text-sm font-medium capitalize">
+                  {userProfile?.user_type ? userProfile.user_type.replace('_', ' ') : 'Loading...'}
+                </ThemedText>
+                <ThemedText className="text-text-muted text-xs">Type</ThemedText>
+              </View>
+              <View className="items-center">
+                <View className="w-10 h-10 bg-info/20 rounded-xl items-center justify-center mb-2">
+                  <IconSymbol size={20} name="person.2.fill" color="#3b82f6" />
+                </View>
+                <ThemedText className="text-text text-sm font-medium">
+                  {userProfile?.household_size || 1}
+                </ThemedText>
+                <ThemedText className="text-text-muted text-xs">
+                  {userProfile?.household_size === 1 ? 'Person' : 'People'}
+                </ThemedText>
+              </View>
+            </View>
           </View>
-          <ThemedText style={styles.name}>{userProfile?.full_name || 'Loading...'}</ThemedText>
-          <ThemedText style={styles.email}>{userProfile?.email || 'Loading...'}</ThemedText>
-          
-          <View style={styles.profileStats}>
-            <View style={styles.statItem}>
-              <IconSymbol size={20} name="location.fill" color="#F59E0B" />
-              <ThemedText style={styles.statText}>{userProfile?.location ? userProfile.location.charAt(0).toUpperCase() + userProfile.location.slice(1) : 'Loading...'}</ThemedText>
-            </View>
-            <View style={styles.statItem}>
-              <IconSymbol size={20} name="person.fill" color="#10B981" />
-              <ThemedText style={styles.statText}>{userProfile?.user_type ? userProfile.user_type.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : 'Loading...'}</ThemedText>
-            </View>
-            <View style={styles.statItem}>
-              <IconSymbol size={20} name="house.fill" color="#8B5CF6" />
-              <ThemedText style={styles.statText}>{userProfile?.accommodation_type ? userProfile.accommodation_type.charAt(0).toUpperCase() + userProfile.accommodation_type.slice(1) : 'Loading...'}</ThemedText>
-            </View>
-          </View>
-        </Card>
-        
-        <Card style={styles.menuCard}>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ThemedText style={styles.loadingText}>Loading profile...</ThemedText>
-            </View>
-          ) : (
-            menuItems.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.menuItem}
-                onPress={item.onPress}
-                activeOpacity={0.7}
-              >
-                <View style={styles.menuItemContent}>
-                  <View style={styles.menuItemLeft}>
-                    <IconSymbol 
-                      size={20} 
-                      name={item.icon} 
-                      color={item.isDestructive ? '#EF4444' : '#FFFFFF'} 
-                    />
-                    <ThemedText style={[
-                      styles.menuTitle,
-                      item.isDestructive && styles.destructiveText
-                    ]}>
+        </View>
+
+        {/* Menu Items */}
+        <View className="px-5 mb-6">
+          <View className="bg-surface rounded-2xl border border-border overflow-hidden">
+            {loading ? (
+              <View className="p-10 items-center">
+                <ThemedText className="text-text-secondary">Loading profile...</ThemedText>
+              </View>
+            ) : (
+              menuItems.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  onPress={item.onPress}
+                  activeOpacity={0.7}
+                  className={cn(
+                    'flex-row items-center justify-between p-4',
+                    index !== menuItems.length - 1 && 'border-b border-border'
+                  )}
+                >
+                  <View className="flex-row items-center flex-1">
+                    <View
+                      className="w-10 h-10 rounded-xl items-center justify-center mr-4"
+                      style={{ backgroundColor: `${item.color}20` }}
+                    >
+                      <IconSymbol
+                        size={20}
+                        name={item.icon}
+                        color={item.color}
+                      />
+                    </View>
+                    <ThemedText
+                      className={cn(
+                        'text-base font-medium',
+                        item.isDestructive ? 'text-error' : 'text-text'
+                      )}
+                    >
                       {item.title}
                     </ThemedText>
                   </View>
-                  <IconSymbol 
-                    size={20} 
-                    name="chevron.right" 
-                    color="#666" 
+                  <IconSymbol
+                    size={20}
+                    name="chevron.right"
+                    color="#64748b"
                   />
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </Card>
-        
-        <Card style={styles.infoCard}>
-          <View style={styles.infoHeader}>
-            <IconSymbol size={20} name="info.circle.fill" color="#0066CC" />
-            <ThemedText style={styles.infoTitle}>Account Information</ThemedText>
+                </TouchableOpacity>
+              ))
+            )}
           </View>
-          <View style={styles.infoContent}>
-            <View style={styles.infoItem}>
-              <ThemedText style={styles.infoLabel}>Member Since:</ThemedText>
-              <ThemedText style={styles.infoValue}>2025</ThemedText>
+        </View>
+
+        {/* Account Info */}
+        <View className="px-5 mb-6">
+          <View className="flex-row items-center mb-4">
+            <View className="w-10 h-10 bg-primary/20 rounded-xl items-center justify-center mr-3">
+              <IconSymbol size={20} name="info.circle.fill" color="#14b8a6" />
+            </View>
+            <ThemedText className="text-text text-lg font-semibold">Account Information</ThemedText>
+          </View>
+
+          <View className="bg-surface rounded-2xl p-5 border border-border">
+            <View className="flex-row justify-between items-center mb-4">
+              <ThemedText className="text-text-secondary text-sm">Member Since</ThemedText>
+              <ThemedText className="text-text font-medium">March 2025</ThemedText>
+            </View>
+            <View className="flex-row justify-between items-center mb-4">
+              <ThemedText className="text-text-secondary text-sm">Account Type</ThemedText>
+              <View className="px-3 py-1 bg-primary/20 rounded-full">
+                <ThemedText className="text-primary text-sm font-medium">Premium Student</ThemedText>
+              </View>
+            </View>
+            <View className="flex-row justify-between items-center">
+              <ThemedText className="text-text-secondary text-sm">Data Usage</ThemedText>
+              <ThemedText className="text-text font-medium">2.3 GB / 10 GB</ThemedText>
             </View>
           </View>
-        </Card>
-      </ThemedView>
-    </ScrollView>
+        </View>
+
+        {/* App Version */}
+        <View className="px-5 items-center pb-8">
+          <ThemedText className="text-text-muted text-xs">Haushalt v1.0.0</ThemedText>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-  },
-  content: {
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 25,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  profileCard: {
-    padding: 30,
-    marginBottom: 25,
-    borderWidth: 1,
-    borderColor: '#404040',
-    alignItems: 'center',
-  },
-  avatarContainer: {
-    marginBottom: 20,
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 5,
-  },
-  email: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    opacity: 0.8,
-    marginBottom: 5,
-  },
-  studentId: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.7,
-  },
-  profileStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#404040',
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    opacity: 0.8,
-    marginLeft: 5,
-  },
-  menuCard: {
-    borderWidth: 1,
-    borderColor: '#404040',
-    marginBottom: 25,
-  },
-  menuItem: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#404040',
-  },
-  menuItemContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-  },
-  menuItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  menuTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#FFFFFF',
-    marginLeft: 15,
-  },
-  destructiveText: {
-    color: '#EF4444',
-  },
-  infoCard: {
-    borderWidth: 1,
-    borderColor: '#404040',
-  },
-  infoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  infoTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 8,
-    color: '#FFFFFF',
-  },
-  infoContent: {
-    gap: 12,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.7,
-  },
-  infoValue: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '500',
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    opacity: 0.7,
-  },
-});

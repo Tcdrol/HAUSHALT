@@ -1,14 +1,14 @@
-import { Link , useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import { useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/app-context';
 import { validateEmail, validateName, validatePassword } from '@/utils/validation';
+import { useRouter } from 'expo-router';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -66,22 +66,24 @@ export default function SignUpScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <Link href="/(onboarding)/welcome">
-          <ThemedText style={styles.backButton}>← Back</ThemedText>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      {/* Header */}
+      <View className="px-5 pt-4 pb-6 flex-row items-center border-b border-border bg-surface">
+        <Link href="/(onboarding)/welcome" className="mr-4">
+          <ThemedText className="text-primary text-base">← Back</ThemedText>
         </Link>
-        <ThemedText style={styles.title}>Create Account</ThemedText>
+        <ThemedText className="text-text text-xl font-bold">Create Account</ThemedText>
       </View>
       
-      <View style={styles.content}>
-        <Card style={styles.card}>
+      <View className="flex-1 px-5 py-6 justify-center">
+        <View className="bg-surface rounded-2xl p-6 border border-border">
           <Input
             label="Full Name"
             placeholder="Enter your full name"
             value={name}
             onChangeText={setName}
             error={errors.name}
+            containerClassName="mb-4"
           />
           
           <Input
@@ -90,6 +92,7 @@ export default function SignUpScreen() {
             value={studentId}
             onChangeText={setStudentId}
             error={errors.studentId}
+            containerClassName="mb-4"
           />
           
           <Input
@@ -100,6 +103,7 @@ export default function SignUpScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             error={errors.email}
+            containerClassName="mb-4"
           />
           
           <Input
@@ -109,72 +113,28 @@ export default function SignUpScreen() {
             onChangeText={setPassword}
             secureTextEntry
             error={errors.password}
+            containerClassName="mb-2"
           />
           
           <Button
             title={loading ? "Creating Account..." : "Sign Up"}
             onPress={handleSignUp}
             size="large"
-            style={styles.signUpButton}
+            className="w-full mt-4"
             disabled={loading}
           />
-        </Card>
+        </View>
         
-        <View style={styles.signInSection}>
-          <ThemedText style={styles.signInText}>
+        <View className="flex-row items-center justify-center mt-6">
+          <ThemedText className="text-text-secondary">
             Already have an account?{' '}
           </ThemedText>
           <Link href="/(auth)/sign-in">
-            <ThemedText type="link">Sign in</ThemedText>
+            <ThemedText className="text-primary font-semibold">Sign in</ThemedText>
           </Link>
         </View>
       </View>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    fontSize: 16,
-    marginRight: 20,
-    color: '#0066CC',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'center',
-  },
-  card: {
-    marginBottom: 20,
-  },
-  signUpButton: {
-    marginTop: 10,
-  },
-  signInSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-  },
-  signInText: {
-    textAlign: 'center',
-    fontSize: 16,
-  },
-});

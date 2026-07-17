@@ -10,6 +10,7 @@ type BudgetCategory = {
   color: string;
   month: number;
   year: number;
+  status?: string;
   created_at: string;
   updated_at: string;
 };
@@ -169,6 +170,54 @@ export class BudgetService {
       return { 
         success: false, 
         error: error.message || 'Failed to update spent amount' 
+      };
+    }
+  }
+
+  // Recalculate spent amount for a category from all expenses
+  static async recalculateCategorySpending(
+    userId: string,
+    category: string,
+    month: number,
+    year: number
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      const endDate = `${year}-${month.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
+
+      const { data: expenses, error } = await supabase
+        .from('expenses')
+        .select('amount')
+        .eq('user_id', userId)
+        .eq('category', category)
+        .gte('date', startDate)
+        .lte('date', endDate);
+
+      if (error) throw error;
+
+      const totalSpent = expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
+
+      // Update the budget category
+      const { error: updateError } = await supabase
+        .from('budget_categories')
+        .update({
+          spent_amount: totalSpent,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .eq('name', category)
+        .eq('month', month)
+        .eq('year', year);
+
+      if (updateError) throw updateError;
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Recalculate category spending error:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to recalculate category spending'
       };
     }
   }
@@ -454,5 +503,47 @@ export class BudgetService {
         }
       )
       .subscribe();
+  }
+
+  // Recalculate category totals from budget items
+  static async recalculateCategoryFromItems(
+    categoryId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: items, error } = await supabase
+        .from('budget_items')
+        .select('estimated_price, actual_price, quantity')
+        .eq('budget_category_id', categoryId);
+
+      if (error) throw error;
+
+      const totalEstimated = items?.reduce((sum, item) => {
+        return sum + (item.estimated_price * (item.quantity || 1));
+      }, 0) || 0;
+
+      const totalActual = items?.reduce((sum, item) => {
+        return sum + ((item.actual_price || 0) * (item.quantity || 1));
+      }, 0) || 0;
+
+      // Update the budget category with calculated totals
+      const { error: updateError } = await supabase
+        .from('budget_categories')
+        .update({
+          planned_amount: Math.round(totalEstimated * 100) / 100,
+          spent_amount: Math.round(totalActual * 100) / 100,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', categoryId);
+
+      if (updateError) throw updateError;
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Recalculate category from items error:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to recalculate category from items'
+      };
+    }
   }
 }

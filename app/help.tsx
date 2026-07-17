@@ -1,14 +1,12 @@
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/app-context';
-import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 
 export default function HelpScreen() {
@@ -54,26 +52,21 @@ export default function HelpScreen() {
     
     setSending(true);
     try {
-      // Save feedback to Supabase
-      const { error } = await supabase
-        .from('user_feedback')
-        .insert({
-          user_id: user.id,
-          feedback: feedback.trim(),
-          email: user.email,
-          created_at: new Date().toISOString(),
-        });
+      const result = await FeedbackService.submitFeedback({
+        user_id: user.id,
+        feedback: feedback.trim(),
+        email: user.email,
+      });
 
-      if (error) {
-        // If table doesn't exist, just show success (don't block user)
-        console.log('Feedback table may not exist:', error);
+      if (result.success) {
+        Alert.alert(
+          'Feedback Sent',
+          'Thank you for your feedback! We\'ll review it and get back to you if needed.',
+          [{ text: 'OK', onPress: () => setFeedback('') }]
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Failed to send feedback. Please try again.');
       }
-      
-      Alert.alert(
-        'Feedback Sent',
-        'Thank you for your feedback! We\'ll review it and get back to you if needed.',
-        [{ text: 'OK', onPress: () => setFeedback('') }]
-      );
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to send feedback. Please try again.');
     } finally {
@@ -86,123 +79,123 @@ export default function HelpScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.content}>
-        <View style={styles.header}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <ScrollView className="flex-1 px-5 py-6">
+        <View className="flex-row justify-between items-center mb-6">
           <TouchableOpacity onPress={() => router.back()}>
-            <IconSymbol size={24} name="chevron.right" color="#0066CC" />
+            <IconSymbol size={24} name="chevron.right" color="#14b8a6" />
           </TouchableOpacity>
-          <ThemedText style={styles.title}>Help & Feedback</ThemedText>
-          <View style={styles.placeholder} />
+          <ThemedText className="text-text text-3xl font-bold">Help & Feedback</ThemedText>
+          <View className="w-6" />
         </View>
         
-        <Card style={styles.helpCard}>
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <IconSymbol size={20} name="questionmark.circle.fill" color="#10B981" />
-              <ThemedText style={styles.sectionTitle}>Frequently Asked Questions</ThemedText>
+        <View className="bg-surface rounded-2xl p-5 border border-border mb-5">
+          <View className="mb-8">
+            <View className="flex-row items-center mb-5">
+              <IconSymbol size={20} name="questionmark.circle.fill" color="#10b981" />
+              <ThemedText className="text-text text-lg font-bold ml-2">Frequently Asked Questions</ThemedText>
             </View>
             
             {faqItems.map((item, index) => (
               <TouchableOpacity
                 key={index}
-                style={styles.faqItem}
+                className="py-4 border-b border-border"
                 onPress={() => toggleFAQ(index)}
               >
-                <View style={styles.faqQuestion}>
-                  <ThemedText style={styles.faqQuestionText}>{item.question}</ThemedText>
+                <View className="flex-row justify-between items-center">
+                  <ThemedText className="text-text text-base font-semibold flex-1">{item.question}</ThemedText>
                   <IconSymbol 
                     size={20} 
                     name="chevron.right" 
-                    color="#666"
-                    style={[expandedFAQ === index && styles.faqIconExpanded]}
+                    color="#64748b"
+                    style={expandedFAQ === index ? { transform: [{ rotate: '90deg' }] } : undefined}
                   />
                 </View>
                 {expandedFAQ === index && (
-                  <ThemedText style={styles.faqAnswer}>{item.answer}</ThemedText>
+                  <ThemedText className="text-text-secondary text-sm mt-4 leading-5">{item.answer}</ThemedText>
                 )}
               </TouchableOpacity>
             ))}
           </View>
           
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <IconSymbol size={20} name="lightbulb.fill" color="#F59E0B" />
-              <ThemedText style={styles.sectionTitle}>Quick Tips</ThemedText>
+          <View className="mb-8">
+            <View className="flex-row items-center mb-5">
+              <IconSymbol size={20} name="lightbulb.fill" color="#f59e0b" />
+              <ThemedText className="text-text text-lg font-bold ml-2">Quick Tips</ThemedText>
             </View>
             
-            <View style={styles.tipItem}>
-              <IconSymbol size={20} name="cart.fill" color="#FFFFFF" />
-              <View style={styles.tipContent}>
-                <ThemedText style={styles.tipTitle}>Smart Shopping</ThemedText>
-                <ThemedText style={styles.tipDescription}>
+            <View className="flex-row items-start mb-5">
+              <IconSymbol size={20} name="cart.fill" color="#ffffff" />
+              <View className="ml-3 flex-1">
+                <ThemedText className="text-text text-base font-semibold mb-1">Smart Shopping</ThemedText>
+                <ThemedText className="text-text-secondary text-sm leading-5">
                   Use price suggestions to budget accurately and save money on groceries.
                 </ThemedText>
               </View>
             </View>
             
-            <View style={styles.tipItem}>
-              <IconSymbol size={20} name="person.2.fill" color="#FFFFFF" />
-              <View style={styles.tipContent}>
-                <ThemedText style={styles.tipTitle}>Group Expenses</ThemedText>
-                <ThemedText style={styles.tipDescription}>
+            <View className="flex-row items-start mb-5">
+              <IconSymbol size={20} name="person.2.fill" color="#ffffff" />
+              <View className="ml-3 flex-1">
+                <ThemedText className="text-text text-base font-semibold mb-1">Group Expenses</ThemedText>
+                <ThemedText className="text-text-secondary text-sm leading-5">
                   Track shared expenses with roommates to avoid confusion about who owes what.
                 </ThemedText>
               </View>
             </View>
             
-            <View style={styles.tipItem}>
-              <IconSymbol size={20} name="chart.bar.fill" color="#FFFFFF" />
-              <View style={styles.tipContent}>
-                <ThemedText style={styles.tipTitle}>Budget Tracking</ThemedText>
-                <ThemedText style={styles.tipDescription}>
+            <View className="flex-row items-start mb-5">
+              <IconSymbol size={20} name="chart.bar.fill" color="#ffffff" />
+              <View className="ml-3 flex-1">
+                <ThemedText className="text-text text-base font-semibold mb-1">Budget Tracking</ThemedText>
+                <ThemedText className="text-text-secondary text-sm leading-5">
                   Set up budget alerts to stay on track with your monthly spending goals.
                 </ThemedText>
               </View>
             </View>
           </View>
           
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <IconSymbol size={20} name="mail.fill" color="#8B5CF6" />
-              <ThemedText style={styles.sectionTitle}>Contact Support</ThemedText>
+          <View className="mb-8">
+            <View className="flex-row items-center mb-5">
+              <IconSymbol size={20} name="mail.fill" color="#8b5cf6" />
+              <ThemedText className="text-text text-lg font-bold ml-2">Contact Support</ThemedText>
             </View>
             
-            <View style={styles.contactItem}>
-              <IconSymbol size={20} name="phone.fill" color="#FFFFFF" />
-              <View style={styles.contactContent}>
-                <ThemedText style={styles.contactTitle}>Phone Support</ThemedText>
-                <ThemedText style={styles.contactDescription}>
+            <View className="flex-row items-center mb-4">
+              <IconSymbol size={20} name="phone.fill" color="#ffffff" />
+              <View className="ml-3">
+                <ThemedText className="text-text text-base font-semibold mb-1">Phone Support</ThemedText>
+                <ThemedText className="text-text-secondary text-sm">
                   +260 955 123 456 (Mon-Fri, 9AM-5PM)
                 </ThemedText>
               </View>
             </View>
             
-            <View style={styles.contactItem}>
-              <IconSymbol size={20} name="mail.fill" color="#FFFFFF" />
-              <View style={styles.contactContent}>
-                <ThemedText style={styles.contactTitle}>Email Support</ThemedText>
-                <ThemedText style={styles.contactDescription}>
+            <View className="flex-row items-center mb-4">
+              <IconSymbol size={20} name="mail.fill" color="#ffffff" />
+              <View className="ml-3">
+                <ThemedText className="text-text text-base font-semibold mb-1">Email Support</ThemedText>
+                <ThemedText className="text-text-secondary text-sm">
                   support@haushalt.app
                 </ThemedText>
               </View>
             </View>
             
-            <View style={styles.contactItem}>
-              <IconSymbol size={20} name="location.fill" color="#FFFFFF" />
-              <View style={styles.contactContent}>
-                <ThemedText style={styles.contactTitle}>Office Location</ThemedText>
-                <ThemedText style={styles.contactDescription}>
+            <View className="flex-row items-center mb-4">
+              <IconSymbol size={20} name="location.fill" color="#ffffff" />
+              <View className="ml-3">
+                <ThemedText className="text-text text-base font-semibold mb-1">Office Location</ThemedText>
+                <ThemedText className="text-text-secondary text-sm">
                   Kitwe, Copperbelt Province
                 </ThemedText>
               </View>
             </View>
           </View>
           
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <IconSymbol size={20} name="chat.fill" color="#10B981" />
-              <ThemedText style={styles.sectionTitle}>Send Feedback</ThemedText>
+          <View className="mb-5">
+            <View className="flex-row items-center mb-5">
+              <IconSymbol size={20} name="chat.fill" color="#10b981" />
+              <ThemedText className="text-text text-lg font-bold ml-2">Send Feedback</ThemedText>
             </View>
             
             <Input
@@ -212,135 +205,19 @@ export default function HelpScreen() {
               onChangeText={setFeedback}
               multiline
               numberOfLines={4}
-              style={styles.feedbackInput}
+              containerClassName="mb-4"
             />
             
             <Button
               title={sending ? "Sending..." : "Send Feedback"}
               onPress={handleSendFeedback}
               size="large"
-              style={styles.sendButton}
+              className="w-full"
               disabled={sending || !feedback.trim()}
             />
           </View>
-        </Card>
-      </ThemedView>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-  },
-  content: {
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 25,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  placeholder: {
-    width: 24,
-  },
-  helpCard: {
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#404040',
-  },
-  section: {
-    marginBottom: 30,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginLeft: 8,
-  },
-  faqItem: {
-    marginBottom: 15,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#404040',
-  },
-  faqQuestion: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  faqQuestionText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    flex: 1,
-  },
-  faqIconExpanded: {
-    transform: [{ rotate: '90deg' }],
-  },
-  faqAnswer: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.8,
-    marginTop: 15,
-    lineHeight: 20,
-  },
-  tipItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 20,
-  },
-  tipContent: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  tipTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 5,
-  },
-  tipDescription: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.8,
-    lineHeight: 20,
-  },
-  contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  contactContent: {
-    marginLeft: 12,
-  },
-  contactTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 5,
-  },
-  contactDescription: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.8,
-  },
-  feedbackInput: {
-    marginBottom: 15,
-  },
-  sendButton: {
-    marginTop: 10,
-  },
-});

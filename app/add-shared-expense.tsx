@@ -1,22 +1,20 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/app-context';
 import { ExpenseService } from '@/lib/services/expense-service';
 import { GroupService } from '@/lib/services/group-service';
-import { categorizeExpense, parseExpenseInput } from '@/utils/expenseCategorization';
-import { validateExpenseInput } from '@/utils/validation';
+import { categorizeExpense } from '@/utils/expenseCategorization';
 
 export default function AddSharedExpenseScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [description, setDescription] = useState('');
+  const [expenseItems, setExpenseItems] = useState<{description: string; amount: number}[]>([{description: '', amount: 0}]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedGroupName, setSelectedGroupName] = useState<string>('');
   const [paidBy, setPaidBy] = useState('You');
@@ -58,76 +56,66 @@ export default function AddSharedExpenseScreen() {
     }
   };
 
+  const addExpenseItem = () => {
+    setExpenseItems([...expenseItems, {description: '', amount: 0}]);
+  };
+
+  const removeExpenseItem = (index: number) => {
+    if (expenseItems.length > 1) {
+      setExpenseItems(expenseItems.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateExpenseItem = (index: number, field: 'description' | 'amount', value: string) => {
+    const updated = [...expenseItems];
+    if (field === 'amount') {
+      updated[index].amount = parseFloat(value) || 0;
+    } else {
+      updated[index].description = value;
+    }
+    setExpenseItems(updated);
+  };
+
   const addExpense = async () => {
     if (!user) {
       Alert.alert('Error', 'You must be logged in to add expenses');
       return;
     }
 
-    const validation = validateExpenseInput(description);
+    const validItems = expenseItems.filter(item => item.description.trim() && item.amount > 0);
     
-    if (!validation.isValid) {
-      const errorMap: { [key: string]: string } = {};
-      validation.errors.forEach(error => {
-        errorMap[error.field] = error.message;
-      });
-      setErrors(errorMap);
+    if (validItems.length === 0) {
+      Alert.alert('Error', 'Please add at least one expense item with a description and amount');
       return;
     }
-
-    const parsed = parseExpenseInput(description);
-    if (!parsed.amount) {
-      setErrors({ description: 'Could not extract amount from description' });
-      return;
-    }
-
-    const category = categorizeExpense(description);
-    const splitAmount = parsed.amount / members.length;
 
     setSaving(true);
     try {
-      // First, create the master expense for the payer
-      const masterExpenseData = {
-        user_id: user.id,
-        description: parsed.merchant || description,
-        amount: parsed.amount,
-        category: category.name,
-        merchant: parsed.merchant || 'Unknown',
-        date: new Date().toISOString().split('T')[0],
-        is_shared: true,
-        group_id: selectedGroupId,
-      };
+      const totalAmount = validItems.reduce((sum, item) => sum + item.amount, 0);
+      const splitAmount = totalAmount / members.length;
 
-      const masterExpenseResult = await ExpenseService.addExpense(masterExpenseData);
+      // Save each expense item to Supabase
+      const results = await Promise.all(validItems.map(async (item) => {
+        const category = categorizeExpense(item.description);
+        const expenseData = {
+          user_id: user.id,
+          description: item.description,
+          amount: item.amount,
+          category: category.name,
+          merchant: 'Unknown',
+          date: new Date().toISOString().split('T')[0],
+          is_shared: true,
+          group_id: selectedGroupId,
+        };
+        return await ExpenseService.addExpense(expenseData);
+      }));
+
+      const allSuccess = results.every(r => r.success);
       
-      if (!masterExpenseResult.success || !masterExpenseResult.data) {
-        Alert.alert('Error', masterExpenseResult.error || 'Failed to create master expense');
-        return;
-      }
-
-      // Check if group is selected
-      if (!selectedGroupId) {
-        Alert.alert('Error', 'Please select a group');
-        return;
-      }
-
-      // Then, create the group expense using the master expense ID
-      const groupExpenseData = {
-        group_id: selectedGroupId,
-        expense_id: masterExpenseResult.data.id,
-        description: parsed.merchant || description,
-        amount: parsed.amount,
-        paid_by: user.id,
-        split_between: members.map(m => m === 'You' ? user.id : m), // In real implementation, would map member names to IDs
-        date: new Date().toISOString().split('T')[0],
-      };
-
-      const result = await GroupService.addGroupExpense(groupExpenseData);
-      
-      if (result.success) {
+      if (allSuccess) {
         Alert.alert(
           'Success',
-          `Shared expense added:\n${parsed.merchant}: K${parsed.amount}\nSplit: K${splitAmount.toFixed(2)} per person\nCategory: ${category.name}`,
+          `${validItems.length} shared expense(s) added:\nTotal: K${totalAmount}\nSplit: K${splitAmount.toFixed(2)} per person`,
           [
             { 
               text: 'OK', 
@@ -137,13 +125,14 @@ export default function AddSharedExpenseScreen() {
         );
         
         // Reset form
-        setDescription('');
+        setExpenseItems([{description: '', amount: 0}]);
         setErrors({});
       } else {
-        Alert.alert('Error', result.error || 'Failed to add expense');
+        const failed = results.filter(r => !r.success);
+        Alert.alert('Error', `Failed to add ${failed.length} expense(s). Please try again.`);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to add expense');
+      Alert.alert('Error', error.message || 'Failed to add expenses');
     } finally {
       setSaving(false);
     }
@@ -154,56 +143,70 @@ export default function AddSharedExpenseScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>Add Shared Expense</ThemedText>
-        <View style={styles.placeholder} />
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <View className="px-5 pt-4 pb-6 flex-row items-center justify-between border-b border-border bg-surface">
+        <ThemedText className="text-text text-xl font-bold">Add Shared Expense</ThemedText>
+        <View className="w-6" />
       </View>
       
-      <ScrollView style={styles.content}>
-        <Card style={styles.card}>
-          <Input
-            label="What did you spend on?"
-            placeholder="Shoprite 350"
-            value={description}
-            onChangeText={setDescription}
-            error={errors.description}
-          />
+      <ScrollView className="flex-1 px-5 py-6">
+        <View className="bg-surface rounded-2xl p-6 border border-border mb-6">
+          <ThemedText className="text-text text-lg font-bold mb-4">Expense Items</ThemedText>
           
-          <View style={styles.exampleSection}>
-            <View style={styles.exampleHeader}>
-              <IconSymbol size={20} name="lightbulb.fill" color="#F59E0B" />
-              <ThemedText style={styles.exampleTitle}>
-                Type something like:
-              </ThemedText>
+          {expenseItems.map((item, index) => (
+            <View key={index} className="bg-background rounded-xl p-4 border border-border mb-3">
+              <View className="flex-row justify-between items-center mb-3">
+                <ThemedText className="text-text font-semibold text-base">Item {index + 1}</ThemedText>
+                {expenseItems.length > 1 && (
+                  <TouchableOpacity onPress={() => removeExpenseItem(index)}>
+                    <IconSymbol size={18} name="xmark.circle.fill" color="#ef4444" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              <TextInput
+                className="bg-surface text-text px-4 py-3 rounded-xl text-base border border-border mb-3"
+                placeholder="Description (e.g., Groceries)"
+                placeholderTextColor="#64748b"
+                value={item.description}
+                onChangeText={(text: string) => updateExpenseItem(index, 'description', text)}
+              />
+              
+              <TextInput
+                className="bg-surface text-text px-4 py-3 rounded-xl text-base border border-border"
+                placeholder="Amount (ZMW)"
+                placeholderTextColor="#64748b"
+                value={item.amount > 0 ? item.amount.toString() : ''}
+                onChangeText={(text: string) => updateExpenseItem(index, 'amount', text)}
+                keyboardType="numeric"
+              />
             </View>
-            <View style={styles.examples}>
-              <View style={styles.exampleItem}>
-                <IconSymbol size={16} name="phone.fill" color="#8B5CF6" />
-                <ThemedText style={styles.example}>&quot;MTN 100&quot; → Airtime</ThemedText>
-              </View>
-              <View style={styles.exampleItem}>
-                <IconSymbol size={16} name="bolt.fill" color="#EF4444" />
-                <ThemedText style={styles.example}>&quot;ZESCO 200&quot; → Electricity</ThemedText>
-              </View>
-              <View style={styles.exampleItem}>
-                <IconSymbol size={16} name="car.fill" color="#F59E0B" />
-                <ThemedText style={styles.example}>&quot;Kombi 10&quot; → Transport</ThemedText>
-              </View>
-              <View style={styles.exampleItem}>
-                <IconSymbol size={16} name="cart.fill" color="#10B981" />
-                <ThemedText style={styles.example}>&quot;Shoprite 350&quot; → Groceries</ThemedText>
-              </View>
-            </View>
+          ))}
+          
+          <TouchableOpacity
+            className="flex-row items-center justify-center py-3 rounded-lg bg-success/20 border border-border mb-4"
+            onPress={addExpenseItem}
+          >
+            <IconSymbol size={18} name="plus.circle.fill" color="#10b981" />
+            <ThemedText className="text-text text-sm ml-2">Add Another Item</ThemedText>
+          </TouchableOpacity>
+          
+          <View className="flex-row justify-between items-center py-3 border-t border-border">
+            <ThemedText className="text-text font-semibold text-base">Total:</ThemedText>
+            <ThemedText className="text-primary text-lg font-bold">
+              K{expenseItems.reduce((sum, item) => sum + item.amount, 0).toFixed(2)}
+            </ThemedText>
           </View>
+        </View>
+        
+        <View className="bg-surface rounded-2xl p-6 border border-border mb-6">
+          <ThemedText className="text-text text-lg font-bold mb-4">Group Details</ThemedText>
           
-          <ThemedText style={styles.sectionTitle}>Group Details</ThemedText>
-          
-          <View style={styles.groupSection}>
-            <ThemedText style={styles.label}>Select Group:</ThemedText>
-            <View style={styles.groupOptions}>
+          <View className="mb-5">
+            <ThemedText className="text-text font-semibold text-base mb-3">Select Group:</ThemedText>
+            <View className="flex-row flex-wrap gap-2">
               {groups.length === 0 ? (
-                <ThemedText style={styles.noGroupsText}>
+                <ThemedText className="text-text-secondary text-sm text-center py-5 w-full">
                   No groups found. Create a group first.
                 </ThemedText>
               ) : (
@@ -217,16 +220,15 @@ export default function AddSharedExpenseScreen() {
                     }}
                     variant={selectedGroupId === group.id ? 'primary' : 'outline'}
                     size="small"
-                    style={styles.groupOption}
                   />
                 ))
               )}
             </View>
           </View>
           
-          <View style={styles.paidBySection}>
-            <ThemedText style={styles.label}>Paid by:</ThemedText>
-            <View style={styles.memberOptions}>
+          <View className="mb-5">
+            <ThemedText className="text-text font-semibold text-base mb-3">Paid by:</ThemedText>
+            <View className="flex-row flex-wrap gap-2">
               {members.map((member, index) => (
                 <Button
                   key={index}
@@ -234,150 +236,29 @@ export default function AddSharedExpenseScreen() {
                   onPress={() => setPaidBy(member)}
                   variant={paidBy === member ? 'primary' : 'outline'}
                   size="small"
-                  style={styles.memberOption}
                 />
               ))}
             </View>
           </View>
           
-          <View style={styles.splitInfo}>
-            <IconSymbol size={20} name="person.2.fill" color="#0066CC" />
-            <ThemedText style={styles.splitText}>
+          <View className="flex-row items-center bg-success/20 p-4 rounded-lg mt-4 border border-border">
+            <IconSymbol size={20} name="person.2.fill" color="#14b8a6" />
+            <ThemedText className="text-text text-sm ml-3">
               {groups.length === 0 
                 ? 'Select a group to see split details'
                 : `This will be split among ${members.length} members`}
             </ThemedText>
           </View>
-        </Card>
+        </View>
         
         <Button
           title={saving ? "Adding..." : "Add Shared Expense"}
           onPress={addExpense}
           size="large"
-          style={styles.addButton}
-          disabled={!description.trim() || saving || groups.length === 0}
+          className="w-full"
+          disabled={saving || groups.length === 0}
         />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: '#2A2A2A',
-    borderBottomWidth: 1,
-    borderBottomColor: '#404040',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  placeholder: {
-    width: 24,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  card: {
-    padding: 20,
-    marginBottom: 20,
-  },
-  exampleSection: {
-    marginBottom: 25,
-  },
-  exampleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  exampleTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-    color: '#FFFFFF',
-  },
-  examples: {
-    marginBottom: 5,
-  },
-  exampleItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  example: {
-    fontSize: 14,
-    marginLeft: 8,
-    color: '#FFFFFF',
-    opacity: 0.8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    marginTop: 20,
-    color: '#FFFFFF',
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 10,
-    color: '#FFFFFF',
-  },
-  groupSection: {
-    marginBottom: 20,
-  },
-  groupOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  groupOption: {
-    marginBottom: 5,
-  },
-  paidBySection: {
-    marginBottom: 20,
-  },
-  memberOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  memberOption: {
-    marginBottom: 5,
-  },
-  splitInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E3A3A',
-    padding: 15,
-    borderRadius: 8,
-    marginTop: 15,
-    borderWidth: 1,
-    borderColor: '#404040',
-  },
-  splitText: {
-    fontSize: 14,
-    marginLeft: 10,
-    color: '#FFFFFF',
-  },
-  addButton: {
-    marginTop: 10,
-  },
-  noGroupsText: {
-    fontSize: 14,
-    color: '#888',
-    textAlign: 'center',
-    paddingVertical: 20,
-  },
-});

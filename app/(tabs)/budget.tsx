@@ -1,24 +1,23 @@
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/app-context';
 import { BudgetService } from '@/lib/services/budget-service';
-import { ExpenseService } from '@/lib/services/expense-service';
 import { BudgetCategory, calculateBudgetProgress } from '@/utils/budgetCalculations';
+
+type BudgetCategoryWithStatus = BudgetCategory & { id: string; status: string };
 
 export default function BudgetScreen() {
   const { user } = useAuth();
-  const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
-  const [expenses, setExpenses] = useState<any[]>([]);
+  const router = useRouter();
+  const [budgetCategories, setBudgetCategories] = useState<BudgetCategoryWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [showExpenses, setShowExpenses] = useState(false);
-
+  
   useEffect(() => {
     if (user) {
       fetchBudgetData();
@@ -27,34 +26,21 @@ export default function BudgetScreen() {
     }
   }, [user, currentMonth]);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchBudgetData();
-    setRefreshing(false);
-  };
-
   const { totalBudget, totalSpent, totalPercentage, isOverBudget } = calculateBudgetProgress(budgetCategories);
   
   const getCategoryIcon = (categoryName: string) => {
-    const iconMap: { [key: string]: 'cart.fill' | 'car.fill' | 'phone.fill' | 'house.fill' | 'person.fill' | 'dollarsign.circle.fill' } = {
+    const iconMap: { [key: string]: 'cart.fill' | 'car.fill' | 'bolt.fill' | 'fork.knife' | 'gamecontroller.fill' | 'heart.fill' | 'bag.fill' | 'book.fill' | 'questionmark.circle.fill' } = {
       'Groceries': 'cart.fill',
       'Transport': 'car.fill',
-      'Airtime/Data': 'phone.fill',
-      'Rent': 'house.fill',
-      'Personal': 'person.fill',
+      'Utilities': 'bolt.fill',
+      'Dining': 'fork.knife',
+      'Entertainment': 'gamecontroller.fill',
+      'Health': 'heart.fill',
+      'Shopping': 'bag.fill',
+      'Education': 'book.fill',
+      'Other': 'questionmark.circle.fill',
     };
-    return iconMap[categoryName] || 'dollarsign.circle.fill';
-  };
-
-  const getCategoryColor = (categoryName: string) => {
-    const colorMap: { [key: string]: string } = {
-      'Groceries': '#10B981',
-      'Transport': '#F59E0B',
-      'Airtime/Data': '#8B5CF6',
-      'Rent': '#6366F1',
-      'Personal': '#6B7280',
-    };
-    return colorMap[categoryName] || '#6B7280';
+    return iconMap[categoryName] || 'questionmark.circle.fill';
   };
 
   const formatMonth = (date: Date) => {
@@ -72,463 +58,257 @@ export default function BudgetScreen() {
       const month = currentMonth.getMonth() + 1;
       const year = currentMonth.getFullYear();
       
-      const [budgetResult, expensesResult] = await Promise.all([
-        BudgetService.getBudgetCategories(user.id, month, year),
-        ExpenseService.getExpensesByMonth(user.id, month, year)
-      ]);
+      const result = await BudgetService.getBudgetCategories(user.id, month, year);
       
-      if (budgetResult.success && budgetResult.data) {
-        // Transform Supabase data to BudgetCategory format
-        const categories: BudgetCategory[] = budgetResult.data.map((cat: any) => ({
+      if (result.success && result.data) {
+        // Transform Supabase data to BudgetCategory format with status
+        const categories: BudgetCategoryWithStatus[] = result.data.map((cat: any) => ({
+          id: cat.id,
           name: cat.name,
           plannedAmount: cat.planned_amount,
           spentAmount: cat.spent_amount,
           percentage: cat.planned_amount > 0 ? Math.round((cat.spent_amount / cat.planned_amount) * 100) : 0,
           color: cat.color || '#0066CC',
+          status: cat.status || 'ready',
         }));
         setBudgetCategories(categories);
       } else {
         // Fallback to empty array if fetch fails
         setBudgetCategories([]);
       }
-
-      if (expensesResult.success && expensesResult.data) {
-        setExpenses(expensesResult.data);
-      } else {
-        setExpenses([]);
-      }
     } catch (error) {
       console.error('Error fetching budget data:', error);
       setBudgetCategories([]);
-      setExpenses([]);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.content}>
-        <View style={styles.header}>
-          <IconSymbol size={24} name="calendar" color="#FFFFFF" />
-          <ThemedText style={styles.title}>{formatMonth(currentMonth)}</ThemedText>
-          <IconSymbol size={24} name="person.fill" color="#FFFFFF" />
-        </View>
-        
-        <Card variant="elevated" style={styles.overviewCard}>
-          <View style={styles.overviewHeader}>
-            <IconSymbol size={24} name="dollarsign.circle.fill" color="#FFFFFF" />
-            <ThemedText style={styles.overviewTitle}>Total Budget: K{totalBudget}</ThemedText>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      {/* Header */}
+      <View className="px-5 pt-4 pb-6">
+        <View className="flex-row justify-between items-center">
+          <View>
+            <ThemedText className="text-text-muted text-sm uppercase tracking-wider">Budget Overview</ThemedText>
+            <ThemedText className="text-text text-2xl font-bold mt-1">{formatMonth(currentMonth)}</ThemedText>
           </View>
-          <View style={styles.overviewDetails}>
-            <ThemedText style={styles.overviewSpent}>Spent: K{totalSpent} ({totalPercentage}%)</ThemedText>
-            <ThemedText style={styles.overviewRemaining}>
-              Remaining: K{totalBudget - totalSpent}
-            </ThemedText>
-          </View>
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${totalPercentage}%` }]} />
-            </View>
-            <ThemedText style={styles.percentageText}>{totalPercentage}%</ThemedText>
-          </View>
-          {isOverBudget && (
-            <View style={styles.overBudgetWarning}>
-              <IconSymbol size={16} name="exclamationmark.triangle.fill" color="#EF4444" />
-              <ThemedText style={styles.overBudgetText}>Over budget by K{totalSpent - totalBudget}</ThemedText>
-            </View>
-          )}
-        </Card>
-        
-        <Card style={styles.categoriesCard}>
-          <View style={styles.categoriesHeader}>
-            <ThemedText style={styles.categoriesTitle}>Categories</ThemedText>
-            <IconSymbol size={20} name="chart.bar.fill" color="#0066CC" />
-          </View>
-          
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ThemedText style={styles.loadingText}>Loading budget data...</ThemedText>
-            </View>
-          ) : (
-            budgetCategories.map((category, index) => (
-              <View key={index} style={styles.categoryItem}>
-                <View style={styles.categoryHeader}>
-                  <View style={styles.categoryInfo}>
-                    <IconSymbol size={20} name={getCategoryIcon(category.name)} color={category.color} />
-                    <ThemedText style={styles.categoryName}>{category.name}</ThemedText>
-                  </View>
-                  <ThemedText style={styles.categoryBudget}>K{category.plannedAmount}</ThemedText>
-                </View>
-                
-                <View style={styles.progressContainer}>
-                  <View style={styles.progressBar}>
-                    <View style={[
-                      styles.progressFill,
-                      { width: `${category.percentage}%`, backgroundColor: category.color }
-                    ]} />
-                  </View>
-                  <ThemedText style={styles.categorySpent}>K{category.spentAmount}</ThemedText>
-                </View>
-                
-                <View style={styles.categoryFooter}>
-                  <ThemedText style={styles.categoryPercentageText}>{category.percentage}%</ThemedText>
-                  {category.percentage > 80 && category.percentage < 100 && (
-                    <View style={styles.warningIndicator}>
-                      <IconSymbol size={12} name="exclamationmark.circle.fill" color="#F59E0B" />
-                    </View>
-                  )}
-                  {category.percentage >= 100 && (
-                    <View style={styles.overBudgetIndicator}>
-                      <IconSymbol size={12} name="xmark.circle.fill" color="#EF4444" />
-                    </View>
-                  )}
-                </View>
-              </View>
-            ))
-          )}
-        </Card>
-        
-        <Card style={styles.insightsCard}>
-          <View style={styles.insightsHeader}>
-            <IconSymbol size={20} name="lightbulb.fill" color="#F59E0B" />
-            <ThemedText style={styles.insightsTitle}>Budget Insights</ThemedText>
-          </View>
-          <View style={styles.insightsContent}>
-            <View style={styles.insightItem}>
-              <IconSymbol size={16} name="trending.up.fill" color="#EF4444" />
-              <ThemedText style={styles.insightText}>
-                Highest spending: {budgetCategories.length > 0 ? 
-                  budgetCategories.reduce((max, cat) => 
-                    cat.spentAmount > max.spentAmount ? cat : max
-                  ).name : 'N/A'}
-              </ThemedText>
-            </View>
-            <View style={styles.insightItem}>
-              <IconSymbol size={16} name="trending.down.fill" color="#10B981" />
-              <ThemedText style={styles.insightText}>
-                Lowest spending: {budgetCategories.length > 0 ? 
-                  budgetCategories.reduce((min, cat) => 
-                    cat.spentAmount < min.spentAmount ? cat : min
-                  ).name : 'N/A'}
-              </ThemedText>
-            </View>
-            <View style={styles.insightItem}>
-              <IconSymbol size={16} name="alert.fill" color="#F59E0B" />
-              <ThemedText style={styles.insightText}>
-                At risk categories: {budgetCategories.filter(cat => cat.percentage > 80).length}
-              </ThemedText>
-            </View>
-          </View>
-        </Card>
-
-        <Card style={styles.expensesCard}>
           <TouchableOpacity 
-            style={styles.expensesHeader}
-            onPress={() => setShowExpenses(!showExpenses)}
+            onPress={() => router.push('/make-budget')}
+            className="w-12 h-12 bg-primary rounded-full items-center justify-center"
           >
-            <View style={styles.expensesHeaderLeft}>
-              <IconSymbol size={20} name="list.bullet" color="#0066CC" />
-              <ThemedText style={styles.expensesTitle}>
-                Expenses for {formatMonth(currentMonth)}
-              </ThemedText>
-            </View>
-            <IconSymbol 
-              size={20} 
-              name={showExpenses ? "chevron.up" : "chevron.down"} 
-              color="#FFFFFF" 
-            />
+            <IconSymbol size={20} name="plus.circle.fill" color="#ffffff" />
           </TouchableOpacity>
+        </View>
+      </View>
 
-          {showExpenses && (
-            <View style={styles.expensesList}>
-              {expenses.length > 0 ? (
-                expenses.map((expense) => (
-                  <View key={expense.id} style={styles.expenseItem}>
-                    <View style={styles.expenseLeft}>
-                      <IconSymbol 
-                        size={18} 
-                        name={getCategoryIcon(expense.category)} 
-                        color={getCategoryColor(expense.category)} 
-                      />
-                      <View style={styles.expenseDetails}>
-                        <ThemedText style={styles.expenseMerchant}>{expense.merchant}</ThemedText>
-                        <ThemedText style={styles.expenseCategory}>{expense.category}</ThemedText>
-                        <ThemedText style={styles.expenseDate}>{expense.date}</ThemedText>
-                      </View>
-                    </View>
-                    <ThemedText style={styles.expenseAmount}>K{expense.amount}</ThemedText>
-                  </View>
-                ))
-              ) : (
-                <View style={styles.noExpensesContainer}>
-                  <ThemedText style={styles.noExpensesText}>No expenses for this month</ThemedText>
-                </View>
-              )}
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+        {/* Total Budget Overview Card */}
+        <View className="mx-5 mb-6">
+          <View className="bg-surface rounded-2xl p-6 border border-border">
+            <View className="flex-row items-center mb-5">
+              <View className="w-12 h-12 bg-primary/20 rounded-xl items-center justify-center mr-4">
+                <IconSymbol size={24} name="dollarsign.circle.fill" color="#14b8a6" />
+              </View>
+              <View>
+                <ThemedText className="text-text-muted text-sm">Total Budget</ThemedText>
+                <ThemedText className="text-text text-2xl font-bold">K{totalBudget}</ThemedText>
+              </View>
             </View>
-          )}
-        </Card>
-      </ThemedView>
-    </ScrollView>
+
+            <View className="flex-row justify-between mb-4">
+              <View className="flex-1">
+                <ThemedText className="text-text-muted text-xs">Spent</ThemedText>
+                <ThemedText className="text-text-lg font-semibold mt-0.5">K{totalSpent}</ThemedText>
+              </View>
+              <View className="flex-1 items-center">
+                <ThemedText className="text-text-muted text-xs">Percentage</ThemedText>
+                <ThemedText className={`text-lg font-semibold mt-0.5 ${isOverBudget ? 'text-error' : 'text-primary'}`}>
+                  {totalPercentage}%
+                </ThemedText>
+              </View>
+              <View className="flex-1 items-end">
+                <ThemedText className="text-text-muted text-xs">Remaining</ThemedText>
+                <ThemedText className={`text-lg font-semibold mt-0.5 ${isOverBudget ? 'text-error' : 'text-success'}`}>
+                  K{Math.max(0, totalBudget - totalSpent)}
+                </ThemedText>
+              </View>
+            </View>
+
+            {/* Progress Bar */}
+            <View className="h-3 bg-surface-elevated rounded-full overflow-hidden mb-4">
+              <View
+                className={`h-full rounded-full ${isOverBudget ? 'bg-error' : 'bg-primary'}`}
+                style={{ width: `${Math.min(totalPercentage, 100)}%` }}
+              />
+            </View>
+
+            {/* Over Budget Warning */}
+            {isOverBudget && (
+              <View className="p-3 bg-error/10 rounded-xl border border-error/30 flex-row items-center">
+                <IconSymbol size={18} name="exclamationmark.triangle.fill" color="#ef4444" />
+                <ThemedText className="text-error text-sm ml-2 flex-1">
+                  Over budget by K{totalSpent - totalBudget}
+                </ThemedText>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Categories Section */}
+        <View className="px-5 mb-6">
+          <View className="flex-row justify-between items-center mb-4">
+            <ThemedText className="text-text text-lg font-semibold">Budget Categories</ThemedText>
+            <View className="w-10 h-10 bg-surface rounded-xl items-center justify-center mr-3">
+              <IconSymbol size={20} name="cart.fill" color="#14b8a6" />
+            </View>
+          </View>
+
+          <View className="bg-surface rounded-2xl border border-border overflow-hidden">
+            {loading ? (
+              <View className="p-10 items-center">
+                <ActivityIndicator size="large" color="#14b8a6" />
+                <ThemedText className="text-text-secondary mt-3">Loading budget data...</ThemedText>
+              </View>
+            ) : budgetCategories.length > 0 ? (
+              budgetCategories.map((category, index) => (
+                <View
+                  key={category.id}
+                  className={`p-5 ${index !== budgetCategories.length - 1 ? 'border-b border-border' : ''}`}
+                >
+                  {/* Category Header */}
+                  <View className="flex-row justify-between items-center mb-3">
+                    <TouchableOpacity
+                      className="flex-row items-center flex-1"
+                      onPress={() => router.push(`/category-detail?category=${encodeURIComponent(category.name)}`)}
+                    >
+                      <View
+                        className="w-10 h-10 rounded-xl items-center justify-center mr-3"
+                        style={{ backgroundColor: `${category.color}20` }}
+                      >
+                        <IconSymbol size={20} name={getCategoryIcon(category.name)} color={category.color} />
+                      </View>
+                      <ThemedText className="text-text font-semibold text-base">{category.name}</ThemedText>
+                    </TouchableOpacity>
+                    <View className="flex-row items-center">
+                      <ThemedText className="text-text font-semibold mr-2">K{category.plannedAmount}</ThemedText>
+                      {category.status === 'ready' && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            Alert.alert(
+                              'Start Shopping',
+                              `Start shopping for ${category.name} now?`,
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                { text: 'Start', onPress: () => router.push('/execute-budget') }
+                              ]
+                            );
+                          }}
+                          className="bg-primary px-3 py-1.5 rounded-lg mr-2"
+                        >
+                          <ThemedText className="text-white text-xs font-semibold">Execute</ThemedText>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity onPress={() => router.push(`/category-detail?category=${encodeURIComponent(category.name)}`)}>
+                        <IconSymbol size={16} name="chevron.right" color="#64748b" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Progress Bar */}
+                  <View className="h-2 bg-surface-elevated rounded-full overflow-hidden mb-2">
+                    <View
+                      className="h-full rounded-full"
+                      style={{ width: `${Math.min(category.percentage, 100)}%`, backgroundColor: category.color }}
+                    />
+                  </View>
+
+                  {/* Category Stats */}
+                  <View className="flex-row justify-between items-center">
+                    <View className="flex-row items-center">
+                      <ThemedText className="text-text-muted text-sm">{category.percentage}% used</ThemedText>
+                      {category.percentage > 80 && category.percentage < 100 && (
+                        <View className="ml-2 px-2 py-0.5 bg-warning/20 rounded-full">
+                          <ThemedText className="text-warning text-xs font-medium">At Risk</ThemedText>
+                        </View>
+                      )}
+                      {category.percentage >= 100 && (
+                        <View className="ml-2 px-2 py-0.5 bg-error/20 rounded-full">
+                          <ThemedText className="text-error text-xs font-medium">Over Budget</ThemedText>
+                        </View>
+                      )}
+                    </View>
+                    <ThemedText className="text-text-secondary text-sm">K{category.spentAmount} spent</ThemedText>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <View className="p-8 items-center">
+                <View className="w-20 h-20 bg-surface-elevated rounded-full items-center justify-center mb-4">
+                  <IconSymbol size={36} name="person.2.fill" color="#64748b" />
+                </View>
+                <ThemedText className="text-text-secondary text-center">No budget categories</ThemedText>
+                <ThemedText className="text-text-muted text-sm text-center mt-1">Add categories in budget settings</ThemedText>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Budget Insights */}
+        <View className="px-5 mb-6">
+          <View className="flex-row items-center mb-4">
+            <View className="w-10 h-10 bg-warning/20 rounded-xl items-center justify-center mr-3">
+              <IconSymbol size={20} name="lightbulb.fill" color="#f59e0b" />
+            </View>
+            <ThemedText className="text-text text-lg font-semibold">Budget Insights</ThemedText>
+          </View>
+
+          <View className="bg-surface rounded-2xl p-5 border border-border">
+            <View className="flex-row items-center mb-4">
+              <View className="w-10 h-10 bg-error/20 rounded-xl items-center justify-center mr-4">
+                <IconSymbol size={20} name="trending.up.fill" color="#ef4444" />
+              </View>
+              <View className="flex-1">
+                <ThemedText className="text-text-muted text-sm">Highest Spending</ThemedText>
+                <ThemedText className="text-text font-semibold">
+                  {budgetCategories.length > 0 ?
+                    budgetCategories.reduce((max, cat) =>
+                      cat.spentAmount > max.spentAmount ? cat : max
+                    ).name : 'N/A'}
+                </ThemedText>
+              </View>
+            </View>
+
+            <View className="flex-row items-center mb-4">
+              <View className="w-10 h-10 bg-success/20 rounded-xl items-center justify-center mr-4">
+                <IconSymbol size={20} name="trending.down.fill" color="#22c55e" />
+              </View>
+              <View className="flex-1">
+                <ThemedText className="text-text-muted text-sm">Lowest Spending</ThemedText>
+                <ThemedText className="text-text font-semibold">
+                  {budgetCategories.length > 0 ?
+                    budgetCategories.reduce((min, cat) =>
+                      cat.spentAmount < min.spentAmount ? cat : min
+                    ).name : 'N/A'}
+                </ThemedText>
+              </View>
+            </View>
+
+            <View className="flex-row items-center">
+              <View className="w-10 h-10 bg-warning/20 rounded-xl items-center justify-center mr-4">
+                <IconSymbol size={20} name="alert.fill" color="#f59e0b" />
+              </View>
+              <View className="flex-1">
+                <ThemedText className="text-text-muted text-sm">At Risk Categories</ThemedText>
+                <ThemedText className="text-text font-semibold">
+                  {budgetCategories.filter(cat => cat.percentage > 80).length} categories
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-  },
-  content: {
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 25,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  overviewCard: {
-    padding: 20,
-    marginBottom: 25,
-    borderWidth: 1,
-    borderColor: '#404040',
-  },
-  overviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  overviewTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginLeft: 8,
-  },
-  overviewDetails: {
-    marginBottom: 15,
-  },
-  overviewSpent: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    marginBottom: 5,
-  },
-  overviewRemaining: {
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  progressContainer: {
-    marginBottom: 15,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#404040',
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#0066CC',
-    borderRadius: 4,
-  },
-  percentageText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    textAlign: 'right',
-    opacity: 0.8,
-  },
-  overBudgetWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    padding: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#EF4444',
-  },
-  overBudgetText: {
-    fontSize: 14,
-    color: '#EF4444',
-    marginLeft: 8,
-  },
-  categoriesCard: {
-    padding: 20,
-    marginBottom: 25,
-    borderWidth: 1,
-    borderColor: '#404040',
-  },
-  categoriesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  categoriesTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  categoryItem: {
-    marginBottom: 25,
-  },
-  categoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  categoryInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  categoryName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-    color: '#FFFFFF',
-  },
-  categoryBudget: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  categorySpent: {
-    fontSize: 14,
-    textAlign: 'right',
-    color: '#FFFFFF',
-    opacity: 0.8,
-  },
-  categoryFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  categoryPercentageText: {
-    fontSize: 14,
-    opacity: 0.7,
-    color: '#FFFFFF',
-  },
-  warningIndicator: {
-    padding: 2,
-    borderRadius: 4,
-  },
-  overBudgetIndicator: {
-    padding: 2,
-    borderRadius: 4,
-  },
-  insightsCard: {
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#404040',
-  },
-  insightsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  insightsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 8,
-    color: '#FFFFFF',
-  },
-  insightsContent: {
-    gap: 12,
-  },
-  insightItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  insightText: {
-    fontSize: 14,
-    marginLeft: 8,
-    color: '#FFFFFF',
-    opacity: 0.9,
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    opacity: 0.7,
-  },
-  expensesCard: {
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#404040',
-  },
-  expensesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  expensesHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  expensesTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginLeft: 8,
-  },
-  expensesList: {
-    marginTop: 15,
-  },
-  expenseItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#404040',
-  },
-  expenseLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  expenseDetails: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  expenseMerchant: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  expenseCategory: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.7,
-    marginTop: 2,
-  },
-  expenseDate: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    opacity: 0.5,
-    marginTop: 2,
-  },
-  expenseAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  noExpensesContainer: {
-    paddingVertical: 30,
-    alignItems: 'center',
-  },
-  noExpensesText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.7,
-  },
-});

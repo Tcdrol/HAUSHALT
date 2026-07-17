@@ -84,11 +84,9 @@ export class AuthService {
       if (data.user) {
         try {
           await ProfileService.upsertProfile(data.user.id, {
-            user_id: data.user.id,
             full_name: fullName,
             email: email,
-            student_id: studentId,
-            user_type: 'student_private', // Default user type
+            user_type: 'student', // Default user type
             location: 'other', // Default location
             household_size: 1, // Default household size
           });

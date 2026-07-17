@@ -22,8 +22,8 @@ export function useRealtimeData<T>(
     try {
       let query = supabase.from(table).select('*');
       
-      // Add user filter
-      if (table === 'expenses') {
+      // Add user filter for user-specific tables
+      if (table === 'expenses' || table === 'budget_categories' || table === 'user_preferences') {
         query = query.eq('user_id', userId);
       }
       
@@ -32,8 +32,10 @@ export function useRealtimeData<T>(
         const filters = filter.split('&');
         filters.forEach(f => {
           const [key, value] = f.split('=');
-          if (key && value) {
-            query = query.eq(key, value);
+          if (key && value && value !== '') {
+            // Remove PostgREST operator prefix (eq., neq., etc.) if present
+            const cleanValue = value.replace(/^(eq|neq|gt|gte|lt|lte|like|ilike)\./, '');
+            query = query.eq(key, cleanValue);
           }
         });
       }
@@ -108,7 +110,7 @@ export function useRealtimeExpenses(userId: string) {
 
 // Hook for real-time budget categories
 export function useRealtimeBudgetCategories(userId: string, month: number, year: number) {
-  const filter = `user_id=eq.${userId}&month=eq.${month}&year=eq.${year}`;
+  const filter = `user_id=${userId}&month=${month}&year=${year}`;
   return useRealtimeData('budget_categories', userId, [], filter);
 }
 

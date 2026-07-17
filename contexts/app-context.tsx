@@ -182,11 +182,9 @@ export function AppProvider({ children }: AppProviderProps) {
             const userData = userResult.user;
             const metadata = userData.user_metadata || {};
             const newProfile = await ProfileService.upsertProfile(userData.id, {
-              user_id: userData.id,
               full_name: metadata.full_name || userData.email?.split('@')[0] || 'User',
               email: userData.email || '',
-              student_id: metadata.student_id || '',
-              user_type: 'student_private',
+              user_type: 'student',
               location: 'other',
               household_size: 1,
             });

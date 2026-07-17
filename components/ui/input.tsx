@@ -1,21 +1,19 @@
+import { cn } from '@/utils/cn';
 import React from 'react';
 import {
-  StyleSheet,
-  TextInput,
-  TextInputProps,
-  View,
-  Text,
-  ViewStyle,
-  TextStyle,
+    Text,
+    TextInput,
+    TextInputProps,
+    View
 } from 'react-native';
-import { useThemeColor } from '@/hooks/use-theme-color';
 
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
-  containerStyle?: ViewStyle;
+  containerClassName?: string;
+  inputClassName?: string;
 }
 
 export function Input({
@@ -23,88 +21,43 @@ export function Input({
   error,
   leftIcon,
   rightIcon,
-  containerStyle,
+  containerClassName,
+  inputClassName,
   style,
   ...textInputProps
 }: InputProps) {
-  const backgroundColor = useThemeColor({}, 'background');
-  const border = useThemeColor({}, 'border');
-  const text = useThemeColor({}, 'text');
-  const textSecondary = useThemeColor({}, 'textSecondary');
-  const errorColor = useThemeColor({}, 'error');
-
   return (
-    <View style={[styles.container, containerStyle]}>
+    <View className={cn('mb-4', containerClassName)}>
       {label && (
-        <Text style={[styles.label, { color: text }]}>{label}</Text>
+        <Text className="text-base font-semibold mb-2 text-text">{label}</Text>
       )}
       
-      <View style={styles.inputContainer}>
+      <View className="relative">
         {leftIcon && (
-          <View style={styles.iconContainer}>{leftIcon}</View>
+          <View className="absolute left-4 top-3 z-10">{leftIcon}</View>
         )}
         
         <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor,
-              borderColor: error ? errorColor : border,
-              color: text,
-              paddingLeft: leftIcon ? 48 : 16,
-              paddingRight: rightIcon ? 48 : 16,
-            },
-            style,
-          ]}
-          placeholderTextColor={textSecondary}
+          className={cn(
+            'border rounded-lg text-base h-12 py-3 bg-background text-text',
+            error ? 'border-error' : 'border-border',
+            leftIcon ? 'pl-12' : 'pl-4',
+            rightIcon ? 'pr-12' : 'pr-4',
+            inputClassName
+          )}
+          style={style}
+          placeholderTextColor="#666666"
           {...textInputProps}
         />
         
         {rightIcon && (
-          <View style={styles.rightIconContainer}>{rightIcon}</View>
+          <View className="absolute right-4 top-3 z-10">{rightIcon}</View>
         )}
       </View>
       
       {error && (
-        <Text style={[styles.errorText, { color: errorColor }]}>{error}</Text>
+        <Text className="text-sm mt-1 text-error">{error}</Text>
       )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  inputContainer: {
-    position: 'relative',
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    fontSize: 16,
-    height: 48,
-    paddingVertical: 12,
-  },
-  iconContainer: {
-    position: 'absolute',
-    left: 16,
-    top: 12,
-    zIndex: 1,
-  },
-  rightIconContainer: {
-    position: 'absolute',
-    right: 16,
-    top: 12,
-    zIndex: 1,
-  },
-  errorText: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-});

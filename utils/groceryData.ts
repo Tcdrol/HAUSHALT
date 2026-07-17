@@ -48,51 +48,7 @@ export interface PriceSuggestion {
 }
 
 // Zambian grocery database with realistic baseline prices
-export const ZAMBIAN_GROCERY_ITEMS: GroceryItem[] = [
-  // Grains
-  { id: '1', name: 'Mealie meal', category: 'grains', unit: '25kg bag', baselinePrice: 180, lastUpdated: new Date() },
-  { id: '2', name: 'Breakfast meal', category: 'grains', unit: '10kg bag', baselinePrice: 120, lastUpdated: new Date() },
-  { id: '3', name: 'Rice', category: 'grains', unit: '5kg bag', baselinePrice: 85, lastUpdated: new Date() },
-  { id: '4', name: 'Bread', category: 'grains', unit: 'loaf', baselinePrice: 20, lastUpdated: new Date() },
-  { id: '5', name: 'Rolls', category: 'grains', unit: '6 pack', baselinePrice: 15, lastUpdated: new Date() },
-  
-  // Oils
-  { id: '6', name: 'Cooking oil', category: 'oils', unit: '2L bottle', baselinePrice: 85, lastUpdated: new Date() },
-  { id: '7', name: 'Margarine', category: 'oils', unit: '500g', baselinePrice: 25, lastUpdated: new Date() },
-  { id: '8', name: 'Chibuku', category: 'oils', unit: '1L', baselinePrice: 15, lastUpdated: new Date() },
-  
-  // Vegetables
-  { id: '9', name: 'Tomatoes', category: 'vegetables', unit: 'kg', baselinePrice: 25, lastUpdated: new Date() },
-  { id: '10', name: 'Onions', category: 'vegetables', unit: 'kg', baselinePrice: 20, lastUpdated: new Date() },
-  { id: '11', name: 'Potatoes', category: 'vegetables', unit: 'kg', baselinePrice: 15, lastUpdated: new Date() },
-  { id: '12', name: 'Rape', category: 'vegetables', unit: 'bunch', baselinePrice: 10, lastUpdated: new Date() },
-  { id: '13', name: 'Kalembula', category: 'vegetables', unit: 'bunch', baselinePrice: 8, lastUpdated: new Date() },
-  
-  // Proteins
-  { id: '14', name: 'Kapenta', category: 'proteins', unit: 'small bucket', baselinePrice: 45, lastUpdated: new Date() },
-  { id: '15', name: 'Chicken', category: 'proteins', unit: 'whole', baselinePrice: 65, lastUpdated: new Date() },
-  { id: '16', name: 'Beef', category: 'proteins', unit: 'kg', baselinePrice: 120, lastUpdated: new Date() },
-  { id: '17', name: 'Eggs', category: 'proteins', unit: '30 pack', baselinePrice: 35, lastUpdated: new Date() },
-  { id: '18', name: 'Dried fish', category: 'proteins', unit: 'kg', baselinePrice: 150, lastUpdated: new Date() },
-  
-  // Dairy
-  { id: '19', name: 'Milk', category: 'dairy', unit: '1L', baselinePrice: 18, lastUpdated: new Date() },
-  { id: '20', name: 'Yoghurt', category: 'dairy', unit: '500ml', baselinePrice: 12, lastUpdated: new Date() },
-  { id: '21', name: 'Cheese', category: 'dairy', unit: '200g', baselinePrice: 45, lastUpdated: new Date() },
-  
-  // Household
-  { id: '22', name: 'Sugar', category: 'household', unit: '2kg', baselinePrice: 65, lastUpdated: new Date() },
-  { id: '23', name: 'Salt', category: 'household', unit: '1kg', baselinePrice: 8, lastUpdated: new Date() },
-  { id: '24', name: 'Soap', category: 'household', unit: 'bar', baselinePrice: 10, lastUpdated: new Date() },
-  { id: '25', name: 'Toilet paper', category: 'household', unit: '12 rolls', baselinePrice: 55, lastUpdated: new Date() },
-  { id: '26', name: 'Matches', category: 'household', unit: 'box', baselinePrice: 5, lastUpdated: new Date() },
-  
-  // Other
-  { id: '27', name: 'Fanta', category: 'other', unit: '2L', baselinePrice: 22, lastUpdated: new Date() },
-  { id: '28', name: 'Coke', category: 'other', unit: '2L', baselinePrice: 25, lastUpdated: new Date() },
-  { id: '29', name: 'Juice', category: 'other', unit: '1L', baselinePrice: 18, lastUpdated: new Date() },
-  { id: '30', name: 'Biscuits', category: 'other', unit: 'pack', baselinePrice: 12, lastUpdated: new Date() },
-];
+export const ZAMBIAN_GROCERY_ITEMS: GroceryItem[] = [];
 
 // Store options in Zambia
 export const ZAMBIAN_STORES = [

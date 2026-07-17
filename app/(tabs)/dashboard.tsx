@@ -1,11 +1,10 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/app-context';
 import { useRealtimeBudgetCategories, useRealtimeExpenses } from '@/hooks/use-realtime-data';
@@ -18,89 +17,51 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [budgetOverview, setBudgetOverview] = useState<any>(null);
   const [groups, setGroups] = useState<any[]>([]);
-  const [groupBalances, setGroupBalances] = useState<any>(null);
-  
-  // Real-time data hooks
+
   const { data: recentExpenses } = useRealtimeExpenses(user?.id || '');
   const { data: budgetCategories } = useRealtimeBudgetCategories(
-    user?.id || '', 
-    new Date().getMonth() + 1, 
+    user?.id || '',
+    new Date().getMonth() + 1,
     new Date().getFullYear()
   );
 
-  const loadBudgetOverview = useCallback(async () => {
+  useEffect(() => {
+    if (user) {
+      loadBudgetOverview();
+      loadGroups();
+    }
+  }, [user, budgetCategories]);
+
+  const loadBudgetOverview = async () => {
     if (!user) return;
-    
+
     try {
       const currentMonth = new Date().getMonth() + 1;
       const currentYear = new Date().getFullYear();
-      
+
       const result = await BudgetService.getBudgetOverview(user.id, currentMonth, currentYear);
       if (result.success) {
         setBudgetOverview(result.data);
       }
     } catch (error) {
       console.error('Error loading budget overview:', error);
-    } finally {
-      setLoading(false);
     }
-  }, [user]);
+  };
 
-  const calculateGroupBalances = useCallback((groupData: any) => {
-    const expenses = groupData.group_expenses || [];
-    const members = groupData.group_members || [];
-    
-    let totalOwed = 0;
-    let totalOwedToYou = 0;
-    
-    expenses.forEach((expense: any) => {
-      const splitAmount = expense.amount / expense.split_between.length;
-      
-      if (expense.paid_by === user?.id) {
-        // You paid this expense
-        totalOwedToYou += (expense.amount - splitAmount);
-      } else if (expense.split_between.includes(user?.id)) {
-        // Someone else paid and you owe your share
-        totalOwed += splitAmount;
-      }
-    });
-    
-    setGroupBalances({
-      totalOwed,
-      totalOwedToYou,
-      memberCount: members.length,
-      groupName: groupData.name
-    });
-  }, [user]);
-
-  const loadUserGroups = useCallback(async () => {
+  const loadGroups = async () => {
     if (!user) return;
-    
+
     try {
       const result = await GroupService.getUserGroups(user.id);
       if (result.success && result.data) {
         setGroups(result.data);
-        
-        // Calculate balances for the first group (if any)
-        if (result.data.length > 0) {
-          const firstGroup = result.data[0];
-          const groupDetails = await GroupService.getGroupDetails(firstGroup.id);
-          if (groupDetails.success && groupDetails.data) {
-            calculateGroupBalances(groupDetails.data);
-          }
-        }
       }
     } catch (error) {
-      console.error('Error loading user groups:', error);
+      console.error('Error loading groups:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [user, calculateGroupBalances]);
-
-  useEffect(() => {
-    if (user) {
-      loadBudgetOverview();
-      loadUserGroups();
-    }
-  }, [user, budgetCategories, loadBudgetOverview, loadUserGroups]);
+  };
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -132,337 +93,213 @@ export default function DashboardScreen() {
 
   if (loading) {
     return (
-      <ThemedView style={styles.container}>
-        <View style={styles.header}>
-          <ThemedText style={styles.appName}>HAUSHALT</ThemedText>
-          <IconSymbol size={24} name="person.fill" color="#FFFFFF" />
+      <SafeAreaView className="flex-1 bg-background">
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#14b8a6" />
+          <ThemedText className="text-text-secondary mt-4 text-base">Loading dashboard...</ThemedText>
         </View>
-        <ThemedView style={styles.content}>
-          <ThemedText style={styles.loadingText}>Loading dashboard...</ThemedText>
-        </ThemedView>
-      </ThemedView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        
-        <ThemedText style={styles.appName}>HAUSHALT</ThemedText>
-        <IconSymbol size={24} name="person.fill" color="#FFFFFF" />
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      {/* Header */}
+      <View className="px-5 pt-4 pb-6">
+        <View className="flex-row justify-between items-center">
+          <View>
+            <ThemedText className="text-text-muted text-sm uppercase tracking-wider">Welcome back</ThemedText>
+            <ThemedText className="text-text text-2xl font-bold mt-1">
+              {user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'User'}
+            </ThemedText>
+          </View>
+          <View className="w-12 h-12 bg-surface rounded-full items-center justify-center border border-border">
+            <IconSymbol size={24} name="person.fill" color="#94a3b8" />
+          </View>
+        </View>
       </View>
-      
-      <ThemedView style={styles.content}>
-        <ThemedText style={styles.greeting}>Hello, {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'}!</ThemedText>
-        
+
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+        {/* Main Budget Card */}
         {budgetOverview && (
-          <Card variant="elevated" style={styles.budgetCard}>
-            <ThemedText style={styles.budgetTitle}>This month's spending</ThemedText>
-            <View style={styles.budgetDetails}>
-              <ThemedText style={styles.budgetItem}>Budget: {formatCurrency(budgetOverview.totalBudget)}</ThemedText>
-              <ThemedText style={styles.budgetItem}>Spent: {formatCurrency(budgetOverview.totalSpent)}</ThemedText>
-              <ThemedText style={styles.budgetItem}>Remaining: {formatCurrency(budgetOverview.totalBudget - budgetOverview.totalSpent)}</ThemedText>
-            </View>
-            <View style={styles.progressBar}>
-              <View style={[
-                styles.progressFill, 
-                { 
-                  width: `${Math.min(budgetOverview.totalPercentage, 100)}%`,
-                  backgroundColor: budgetOverview.isOverBudget ? '#EF4444' : '#0066CC'
-                }
-              ]} />
-            </View>
-            <ThemedText style={styles.percentageText}>{Math.round(budgetOverview.totalPercentage)}%</ThemedText>
-            {budgetOverview.isOverBudget && (
-              <View style={styles.overBudgetWarning}>
-                <IconSymbol size={16} name="exclamationmark.triangle.fill" color="#EF4444" />
-                <ThemedText style={styles.overBudgetText}>
-                  Over budget by {formatCurrency(budgetOverview.totalSpent - budgetOverview.totalBudget)}
-                </ThemedText>
-              </View>
-            )}
-            
-            {budgetCategories && budgetCategories.length > 0 && (
-              <View style={styles.categoriesSection}>
-                <ThemedText style={styles.categoriesTitle}>Budget Categories</ThemedText>
-                {budgetCategories.slice(0, 4).map((category: any) => (
-                  <View key={category.id} style={styles.categoryRow}>
-                    <View style={styles.categoryInfo}>
-                      <View style={[styles.categoryColorDot, { backgroundColor: category.color }]} />
-                      <ThemedText style={styles.categoryName}>{category.name}</ThemedText>
-                    </View>
-                    <ThemedText style={styles.categoryAmount}>
-                      {formatCurrency(category.spent_amount)} / {formatCurrency(category.planned_amount)}
-                    </ThemedText>
-                  </View>
-                ))}
-              </View>
-            )}
-          </Card>
-        )}
-        
-        <ThemedText style={styles.sectionTitle}>Recent Expenses</ThemedText>
-        
-        <Card style={styles.expensesCard}>
-          {recentExpenses && recentExpenses.length > 0 ? (
-            recentExpenses.slice(0, 5).map((expense: any, index: number) => (
-              <View key={expense.id} style={styles.expenseItem}>
-                <View style={styles.expenseLeft}>
-                  <IconSymbol 
-                    size={20} 
-                    name={getCategoryIcon(expense.category)} 
-                    color={getCategoryColor(expense.category)} 
-                  />
-                  <ThemedText style={styles.expenseName}>{expense.merchant}</ThemedText>
+          <View className="mx-5 mb-6">
+            <View className="bg-surface rounded-2xl p-6 border border-border">
+              {/* Budget Header */}
+              <View className="flex-row justify-between items-start mb-6">
+                <View>
+                  <ThemedText className="text-text-muted text-sm">Monthly Budget</ThemedText>
+                  <ThemedText className="text-text text-3xl font-bold mt-1">
+                    {formatCurrency(budgetOverview.totalSpent)}
+                  </ThemedText>
+                  <ThemedText className="text-text-secondary text-sm mt-1">
+                    of {formatCurrency(budgetOverview.totalBudget)}
+                  </ThemedText>
                 </View>
-                <ThemedText style={styles.expenseAmount}>{formatCurrency(expense.amount)}</ThemedText>
+                <View className={`px-3 py-1.5 rounded-full ${budgetOverview.isOverBudget ? 'bg-error/20' : 'bg-success/20'}`}>
+                  <ThemedText className={`text-sm font-semibold ${budgetOverview.isOverBudget ? 'text-error' : 'text-success'}`}>
+                    {Math.round(budgetOverview.totalPercentage)}%
+                  </ThemedText>
+                </View>
               </View>
-            ))
-          ) : (
-            <ThemedText style={styles.noExpensesText}>No expenses yet. Add your first expense!</ThemedText>
-          )}
-        </Card>
-        
-        <Button
-            title="+ Add Expense"
+
+              {/* Progress Bar */}
+              <View className="h-3 bg-surface-elevated rounded-full overflow-hidden mb-4">
+                <View
+                  className={`h-full rounded-full ${budgetOverview.isOverBudget ? 'bg-error' : 'bg-primary'}`}
+                  style={{ width: `${Math.min(budgetOverview.totalPercentage, 100)}%` }}
+                />
+              </View>
+
+              {/* Budget Stats */}
+              <View className="flex-row justify-between">
+                <View className="flex-1">
+                  <ThemedText className="text-text-muted text-xs">Remaining</ThemedText>
+                  <ThemedText className={`text-lg font-semibold mt-0.5 ${budgetOverview.isOverBudget ? 'text-error' : 'text-text'}`}>
+                    {formatCurrency(Math.max(0, budgetOverview.totalBudget - budgetOverview.totalSpent))}
+                  </ThemedText>
+                </View>
+                <View className="flex-1 items-center">
+                  <ThemedText className="text-text-muted text-xs">Spent</ThemedText>
+                  <ThemedText className="text-text text-lg font-semibold mt-0.5">
+                    {formatCurrency(budgetOverview.totalSpent)}
+                  </ThemedText>
+                </View>
+                <View className="flex-1 items-end">
+                  <ThemedText className="text-text-muted text-xs">Budget</ThemedText>
+                  <ThemedText className="text-text text-lg font-semibold mt-0.5">
+                    {formatCurrency(budgetOverview.totalBudget)}
+                  </ThemedText>
+                </View>
+              </View>
+
+              {/* Over Budget Warning */}
+              {budgetOverview.isOverBudget && (
+                <View className="mt-4 p-3 bg-error/10 rounded-xl border border-error/30 flex-row items-center">
+                  <IconSymbol size={18} name="exclamationmark.triangle.fill" color="#ef4444" />
+                  <ThemedText className="text-error text-sm ml-2 flex-1">
+                    Over budget by {formatCurrency(budgetOverview.totalSpent - budgetOverview.totalBudget)}
+                  </ThemedText>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Quick Actions */}
+        <View className="px-5 mb-6">
+          <Button
+            title="Add Expense"
             onPress={() => router.push('/add-expense')}
             size="large"
-            icon={<IconSymbol size={20} name="plus.circle.fill" color="#FFFFFF" />}
+            className="bg-primary shadow-lg shadow-primary/30"
+            textClassName="text-white"
+            icon={<IconSymbol size={20} name="plus.circle.fill" color="#ffffff" />}
           />
-        
-        <Card style={styles.groupsCard}>
-          <View style={styles.groupsHeader}>
-            <ThemedText style={styles.sectionTitle}>Groups</ThemedText>
-            <IconSymbol size={20} name="person.2.fill" color="#0066CC" />
+        </View>
+
+        {/* Recent Expenses */}
+        <View className="px-5 mb-6">
+          <View className="flex-row justify-between items-center mb-4">
+            <ThemedText className="text-text text-lg font-semibold">Recent Expenses</ThemedText>
+            <Button
+              title="View All"
+              onPress={() => router.push('/(tabs)/budget')}
+              variant="ghost"
+              size="small"
+              textClassName="text-primary"
+            />
           </View>
-          
+
+          <View className="bg-surface rounded-2xl border border-border overflow-hidden">
+            {recentExpenses && recentExpenses.length > 0 ? (
+              recentExpenses.slice(0, 5).map((expense: any, index: number) => (
+                <View
+                  key={expense.id}
+                  className={`flex-row items-center p-4 ${index !== 4 && index !== (recentExpenses.slice(0, 5).length - 1) ? 'border-b border-border' : ''}`}
+                >
+                  <View
+                    className="w-10 h-10 rounded-xl items-center justify-center mr-4"
+                    style={{ backgroundColor: `${getCategoryColor(expense.category)}20` }}
+                  >
+                    <IconSymbol
+                      size={20}
+                      name={getCategoryIcon(expense.category)}
+                      color={getCategoryColor(expense.category)}
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <ThemedText className="text-text font-medium">{expense.merchant}</ThemedText>
+                    <ThemedText className="text-text-muted text-sm capitalize">{expense.category}</ThemedText>
+                  </View>
+                  <ThemedText className="text-text font-semibold text-base">
+                    {formatCurrency(expense.amount)}
+                  </ThemedText>
+                </View>
+              ))
+            ) : (
+              <View className="p-8 items-center">
+                <View className="w-16 h-16 bg-surface-elevated rounded-full items-center justify-center mb-3">
+                  <IconSymbol size={28} name="cart.fill" color="#64748b" />
+                </View>
+                <ThemedText className="text-text-secondary text-center">No expenses yet</ThemedText>
+                <ThemedText className="text-text-muted text-sm text-center mt-1">Add your first expense to get started</ThemedText>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Groups Card */}
+        <View className="px-5 mb-6">
+          <View className="flex-row justify-between items-center mb-4">
+            <ThemedText className="text-text text-lg font-semibold">Shared Groups</ThemedText>
+            <Button
+              title="View All"
+              onPress={() => router.push('/(tabs)/groups')}
+              variant="ghost"
+              size="small"
+              textClassName="text-primary"
+            />
+          </View>
+
           {groups.length === 0 ? (
-            <ThemedText style={styles.noGroupsText}>No groups yet. Create a group to track shared expenses!</ThemedText>
-          ) : groupBalances ? (
-            <>
-              <ThemedText style={styles.groupName}>{groupBalances.groupName} • {groupBalances.memberCount} members</ThemedText>
-              {groupBalances.totalOwed > 0 && (
-                <ThemedText style={styles.groupOwes}>You owe {formatCurrency(groupBalances.totalOwed)}</ThemedText>
-              )}
-              {groupBalances.totalOwedToYou > 0 && (
-                <ThemedText style={styles.groupOwedToYou}>You are owed {formatCurrency(groupBalances.totalOwedToYou)}</ThemedText>
-              )}
-              {groupBalances.totalOwed === 0 && groupBalances.totalOwedToYou === 0 && (
-                <ThemedText style={styles.groupSettled}>All settled up!</ThemedText>
-              )}
-            </>
+            <View className="bg-surface rounded-2xl p-5 border border-border">
+              <View className="items-center">
+                <View className="w-12 h-12 bg-primary/20 rounded-xl items-center justify-center mb-3">
+                  <IconSymbol size={24} name="person.2.fill" color="#14b8a6" />
+                </View>
+                <ThemedText className="text-text-secondary text-center">No groups yet</ThemedText>
+                <ThemedText className="text-text-muted text-sm text-center mt-1">Create a group to share expenses</ThemedText>
+              </View>
+            </View>
           ) : (
-            <ThemedText style={styles.loadingGroupsText}>Loading group data...</ThemedText>
+            groups.slice(0, 1).map((group) => (
+              <View key={group.id} className="bg-surface rounded-2xl p-5 border border-border">
+                <View className="flex-row items-center mb-4">
+                  <View className="w-12 h-12 bg-primary/20 rounded-xl items-center justify-center mr-4">
+                    <IconSymbol size={24} name="person.2.fill" color="#14b8a6" />
+                  </View>
+                  <View className="flex-1">
+                    <ThemedText className="text-text font-semibold text-lg">{group.name}</ThemedText>
+                    <ThemedText className="text-text-muted text-sm">Active</ThemedText>
+                  </View>
+                  <View className="items-end">
+                    <ThemedText className="text-success font-bold text-lg">K0</ThemedText>
+                    <ThemedText className="text-text-muted text-xs">Settled</ThemedText>
+                  </View>
+                </View>
+                <Button
+                  title="View Details"
+                  onPress={() => router.push(`/group-detail?id=${group.id}`)}
+                  variant="outline"
+                  size="medium"
+                  className="w-full"
+                />
+              </View>
+            ))
           )}
-          
-          <Button
-            title="View All Groups"
-            onPress={() => router.push('/(tabs)/groups')}
-            variant="outline"
-            size="small"
-          />
-        </Card>
-      </ThemedView>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: '#2A2A2A',
-    borderBottomWidth: 1,
-    borderBottomColor: '#404040',
-  },
-  appName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  content: {
-    padding: 20,
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 25,
-  },
-  budgetCard: {
-    marginBottom: 25,
-  },
-  budgetTitle: {
-    fontSize: 16,
-    marginBottom: 15,
-    color: '#666',
-  },
-  budgetDetails: {
-    marginBottom: 15,
-  },
-  budgetItem: {
-    fontSize: 14,
-    marginBottom: 5,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
-    marginBottom: 5,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#0066CC',
-    borderRadius: 4,
-  },
-  percentageText: {
-    fontSize: 14,
-    textAlign: 'right',
-    color: '#666',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-  },
-  expensesCard: {
-    marginBottom: 25,
-  },
-  expenseItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  expenseLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  expenseName: {
-    fontSize: 16,
-    marginLeft: 12,
-  },
-  expenseAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  groupsCard: {
-    marginBottom: 25,
-  },
-  groupsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  groupName: {
-    fontSize: 16,
-    marginBottom: 5,
-  },
-  groupOwes: {
-    fontSize: 16,
-    color: '#EF4444',
-    fontWeight: '600',
-    marginBottom: 5,
-  },
-  groupOwedToYou: {
-    fontSize: 16,
-    color: '#10B981',
-    fontWeight: '600',
-    marginBottom: 5,
-  },
-  groupSettled: {
-    fontSize: 16,
-    color: '#10B981',
-    fontWeight: '600',
-    marginBottom: 15,
-  },
-  noGroupsText: {
-    fontSize: 16,
-    textAlign: 'center',
-    color: '#FFFFFF',
-    opacity: 0.7,
-    paddingVertical: 20,
-  },
-  loadingGroupsText: {
-    fontSize: 16,
-    textAlign: 'center',
-    color: '#FFFFFF',
-    opacity: 0.7,
-    paddingVertical: 20,
-  },
-  loadingText: {
-    fontSize: 16,
-    textAlign: 'center',
-    color: '#FFFFFF',
-    opacity: 0.7,
-  },
-  noExpensesText: {
-    fontSize: 16,
-    textAlign: 'center',
-    color: '#FFFFFF',
-    opacity: 0.7,
-    paddingVertical: 20,
-  },
-  overBudgetWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    padding: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#EF4444',
-  },
-  overBudgetText: {
-    fontSize: 14,
-    color: '#EF4444',
-    marginLeft: 8,
-  },
-  categoriesSection: {
-    marginTop: 20,
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#404040',
-  },
-  categoriesTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 10,
-    color: '#FFFFFF',
-  },
-  categoryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  categoryInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  categoryColorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  categoryName: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  categoryAmount: {
-    fontSize: 14,
-    color: '#0066CC',
-    fontWeight: '600',
-  },
-});

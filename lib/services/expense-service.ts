@@ -75,7 +75,8 @@ export class ExpenseService {
   ): Promise<{ success: boolean; data?: Expense[]; error?: string }> {
     try {
       const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
-      const endDate = `${year}-${month.toString().padStart(2, '0')}-31`;
+      const lastDay = new Date(year, month, 0).getDate();
+      const endDate = `${year}-${month.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
 
       const { data, error } = await supabase
         .from('expenses')
@@ -139,10 +140,26 @@ export class ExpenseService {
 
   // Update an expense
   static async updateExpense(
-    expenseId: string, 
+    expenseId: string,
     updates: ExpenseUpdate
   ): Promise<{ success: boolean; data?: Expense; error?: string }> {
     try {
+      // Get the old expense first so we know what to adjust in the budget
+      const { data: oldExpense, error: fetchError } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('id', expenseId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const oldCategory = oldExpense.category;
+      const oldAmount = oldExpense.amount;
+      const oldDate = new Date(oldExpense.date);
+      const oldMonth = oldDate.getMonth() + 1;
+      const oldYear = oldDate.getFullYear();
+
+      // Update the expense
       const { data, error } = await supabase
         .from('expenses')
         .update({
@@ -157,12 +174,34 @@ export class ExpenseService {
         throw error;
       }
 
+      const newCategory = updates.category || oldCategory;
+      const newAmount = updates.amount ?? oldAmount;
+      const newDate = updates.date ? new Date(updates.date) : oldDate;
+      const newMonth = newDate.getMonth() + 1;
+      const newYear = newDate.getFullYear();
+
+      // Always recalculate the old category spending
+      await BudgetService.recalculateCategorySpending(
+        oldExpense.user_id, oldCategory, oldMonth, oldYear
+      );
+
+      // If category, amount, or date changed, recalculate the new category too
+      const categoryChanged = newCategory !== oldCategory;
+      const amountChanged = updates.amount !== undefined && updates.amount !== oldAmount;
+      const dateChanged = updates.date && updates.date !== oldExpense.date;
+
+      if (categoryChanged || amountChanged || dateChanged) {
+        await BudgetService.recalculateCategorySpending(
+          oldExpense.user_id, newCategory, newMonth, newYear
+        );
+      }
+
       return { success: true, data };
     } catch (error: any) {
       console.error('Update expense error:', error);
-      return { 
-        success: false, 
-        error: error.message || 'Failed to update expense' 
+      return {
+        success: false,
+        error: error.message || 'Failed to update expense'
       };
     }
   }
@@ -172,6 +211,15 @@ export class ExpenseService {
     expenseId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      // Get the expense first so we know what to adjust in the budget
+      const { data: expense, error: fetchError } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('id', expenseId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
       const { error } = await supabase
         .from('expenses')
         .delete()
@@ -181,12 +229,21 @@ export class ExpenseService {
         throw error;
       }
 
+      // Recalculate the category spending to reflect the deletion
+      const expenseDate = new Date(expense.date);
+      const month = expenseDate.getMonth() + 1;
+      const year = expenseDate.getFullYear();
+
+      await BudgetService.recalculateCategorySpending(
+        expense.user_id, expense.category, month, year
+      );
+
       return { success: true };
     } catch (error: any) {
       console.error('Delete expense error:', error);
-      return { 
-        success: false, 
-        error: error.message || 'Failed to delete expense' 
+      return {
+        success: false,
+        error: error.message || 'Failed to delete expense'
       };
     }
   }
@@ -199,7 +256,8 @@ export class ExpenseService {
   ): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
-      const endDate = `${year}-${month.toString().padStart(2, '0')}-31`;
+      const lastDay = new Date(year, month, 0).getDate();
+      const endDate = `${year}-${month.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
 
       const { data, error } = await supabase
         .from('expenses')
@@ -336,12 +394,24 @@ export class ExpenseService {
           return null;
         }
 
+        // Recalculate the shared category spending for this user
+        const expenseDate = new Date(expenseData.date);
+        const month = expenseDate.getMonth() + 1;
+        const year = expenseDate.getFullYear();
+
+        await BudgetService.recalculateCategorySpending(
+          userId,
+          expenseData.category,
+          month,
+          year
+        );
+
         return { userId, success: true };
       });
 
       const results = await Promise.all(expensePromises);
 
-      return { 
+      return {
         success: true, 
         data: {
           groupExpense: groupExpenseResult.data,

@@ -1,97 +1,80 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, View, TextInput, Alert, TouchableOpacity } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { 
-  ShoppingListItem,
-  MultiStoreBudget,
-  UNIVERSAL_STORES, 
-  ZAMBIAN_LOCATIONS 
-} from '@/utils/groceryData';
+import { useAuth } from '@/contexts/app-context';
+import { GroceryService } from '@/lib/services/grocery-service';
+import { UNIVERSAL_STORES } from '@/utils/groceryData';
 
 export default function GroceryMultiShoppingScreen() {
-  const params = useLocalSearchParams<{ budgetId: string; location: string; locationName?: string }>();
+  const params = useLocalSearchParams<{ tripIds: string; location: string; locationName?: string }>();
   const router = useRouter();
+  const { user } = useAuth();
   
   const [location] = useState(params.location || 'kitwe');
   const [locationName] = useState(params.locationName || 'Kitwe');
   const [currentStoreIndex, setCurrentStoreIndex] = useState(0);
-  const [actualPrices, setActualPrices] = useState<{ [key: string]: string }>({});
+  const [actualPrices, setActualPrices] = useState<{ [key: string]: number }>({});
   const [showAddItem, setShowAddItem] = useState(false);
   const [newItemName, setNewItemName] = useState('');
+  const [trips, setTrips] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   
-  // Mock multi-store budget - in real app, this would come from state/API
-  const multiStoreBudget: MultiStoreBudget = {
-    id: params.budgetId || '1',
-    location,
-    items: [
-      // Shoprite items
-      {
-        id: '1',
-        item: { id: '1', name: 'Mealie meal', category: 'grains', unit: '25kg bag', baselinePrice: 180, lastUpdated: new Date() },
-        suggestedPrice: 180,
-        quantity: 1,
-        added: new Date(),
-        storeId: 'shoprite',
-      },
-      {
-        id: '2',
-        item: { id: '6', name: 'Cooking oil', category: 'oils', unit: '2L bottle', baselinePrice: 85, lastUpdated: new Date() },
-        suggestedPrice: 85,
-        quantity: 1,
-        added: new Date(),
-        storeId: 'shoprite',
-      },
-      // Local Market items
-      {
-        id: '3',
-        item: { id: '22', name: 'Sugar', category: 'household', unit: '2kg', baselinePrice: 65, lastUpdated: new Date() },
-        suggestedPrice: 60,
-        quantity: 1,
-        added: new Date(),
-        storeId: 'local_market',
-      },
-      {
-        id: '4',
-        item: { id: '9', name: 'Tomatoes', category: 'vegetables', unit: 'kg', baselinePrice: 25, lastUpdated: new Date() },
-        suggestedPrice: 20,
-        quantity: 2,
-        added: new Date(),
-        storeId: 'local_market',
-      },
-      // Butcher items
-      {
-        id: '5',
-        item: { id: '14', name: 'Kapenta', category: 'proteins', unit: 'small bucket', baselinePrice: 45, lastUpdated: new Date() },
-        suggestedPrice: 40,
-        quantity: 1,
-        added: new Date(),
-        storeId: 'butcher',
-      },
-    ],
-    stores: ['shoprite', 'local_market', 'butcher'],
-    estimatedTotal: 425,
-    date: new Date(),
-    status: 'shopping',
+  // Load trip data from database
+  useEffect(() => {
+    if (params.tripIds) {
+      loadTrips();
+    }
+  }, [params.tripIds]);
+  
+  const loadTrips = async () => {
+    setLoading(true);
+    try {
+      const tripIds = params.tripIds?.split(',') || [];
+      const tripData: any[] = [];
+      
+      for (const tripId of tripIds) {
+        const result = await GroceryService.getGroceryTripDetails(tripId);
+        if (result.success && result.data) {
+          tripData.push(result.data);
+        }
+      }
+      
+      setTrips(tripData);
+    } catch (error) {
+      console.error('Failed to load trips:', error);
+    } finally {
+      setLoading(false);
+    }
   };
   
-  const currentStore = multiStoreBudget.stores[currentStoreIndex];
-  const currentStoreItems = multiStoreBudget.items.filter(item => item.storeId === currentStore);
+  const currentTrip = trips[currentStoreIndex];
+  const currentStore = currentTrip?.store || '';
+  const currentStoreItems = currentTrip?.grocery_trip_items || [];
   
   const getStoreName = (storeId: string) => {
     return UNIVERSAL_STORES.find(s => s.id === storeId)?.name || storeId;
   };
   
-  const updateActualPrice = (itemId: string, price: string) => {
+  const updateActualPrice = async (tripItemId: string, price: string) => {
+    const numPrice = parseFloat(price);
+    if (isNaN(numPrice)) return;
+    
     setActualPrices(prev => ({
       ...prev,
-      [itemId]: price
+      [tripItemId]: numPrice
     }));
+    
+    // Update in database immediately
+    const result = await GroceryService.updateTripItemPrice(tripItemId, numPrice);
+    if (!result.success) {
+      console.error('Failed to update price:', result.error);
+    }
   };
   
   const addMissingItem = () => {
@@ -100,52 +83,30 @@ export default function GroceryMultiShoppingScreen() {
       return;
     }
     
-    const newItem: ShoppingListItem = {
-      id: Date.now().toString(),
-      item: {
-        id: `custom_${Date.now()}`,
-        name: newItemName.trim(),
-        category: 'other',
-        unit: 'item',
-        baselinePrice: 50,
-        lastUpdated: new Date()
-      },
-      suggestedPrice: 50,
-      quantity: 1,
-      added: new Date(),
-      storeId: currentStore,
-    };
-    
-    // In real app, this would update the budget
+    // In real app, this would add item to the trip
     Alert.alert('Item Added', `"${newItemName}" added to your shopping list.`);
     setNewItemName('');
     setShowAddItem(false);
   };
   
-  const calculateStoreEstimated = (storeId: string) => {
-    return multiStoreBudget.items
-      .filter(item => item.storeId === storeId)
-      .reduce((total, item) => total + (item.suggestedPrice * item.quantity), 0);
+  const calculateStoreEstimated = (trip: any) => {
+    return trip?.grocery_trip_items?.reduce((total: number, item: any) => 
+      total + (item.suggested_price * item.quantity), 0) || 0;
   };
   
-  const calculateStoreActual = (storeId: string) => {
-    return multiStoreBudget.items
-      .filter(item => item.storeId === storeId)
-      .reduce((total, item) => {
-        const actualPrice = actualPrices[item.id] ? parseFloat(actualPrices[item.id]) : item.suggestedPrice;
-        return total + (actualPrice * item.quantity);
-      }, 0);
+  const calculateStoreActual = (trip: any) => {
+    return trip?.grocery_trip_items?.reduce((total: number, item: any) => {
+      const actualPrice = actualPrices[item.id] || item.suggested_price;
+      return total + (actualPrice * item.quantity);
+    }, 0) || 0;
   };
   
   const calculateTotalEstimated = () => {
-    return multiStoreBudget.items.reduce((total, item) => total + (item.suggestedPrice * item.quantity), 0);
+    return trips.reduce((total, trip) => total + calculateStoreEstimated(trip), 0);
   };
   
   const calculateTotalActual = () => {
-    return multiStoreBudget.items.reduce((total, item) => {
-      const actualPrice = actualPrices[item.id] ? parseFloat(actualPrices[item.id]) : item.suggestedPrice;
-      return total + (actualPrice * item.quantity);
-    }, 0);
+    return trips.reduce((total, trip) => total + calculateStoreActual(trip), 0);
   };
   
   const calculateDifference = () => {
@@ -153,7 +114,7 @@ export default function GroceryMultiShoppingScreen() {
   };
   
   const goToNextStore = () => {
-    if (currentStoreIndex < multiStoreBudget.stores.length - 1) {
+    if (currentStoreIndex < trips.length - 1) {
       setCurrentStoreIndex(prev => prev + 1);
     }
   };
@@ -164,442 +125,229 @@ export default function GroceryMultiShoppingScreen() {
     }
   };
   
-  const saveShoppingTrip = () => {
-    const missingPrices = multiStoreBudget.items.filter(item => !actualPrices[item.id]);
+  const saveShoppingTrip = async () => {
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to save shopping trip.');
+      return;
+    }
+
+    const allItems = trips.flatMap(trip => trip.grocery_trip_items || []);
+    const missingPrices = allItems.filter(item => !actualPrices[item.id]);
+    
     if (missingPrices.length > 0) {
       Alert.alert('Missing Prices', 'Please enter actual prices for all items before saving.');
       return;
     }
     
-    // In real app, this would save to database
-    Alert.alert(
-      'Shopping Trip Complete!',
-      `Your multi-store shopping trip has been saved. ${calculateDifference() >= 0 ? 'You spent' : 'You saved'} K${Math.abs(calculateDifference())}.`,
-      [
-        { text: 'OK', onPress: () => router.push('/(tabs)/dashboard') }
-      ]
-    );
+    setSaving(true);
+    try {
+      // Record all prices to price_records
+      for (const trip of trips) {
+        const store = trip.store;
+        const tripItems = trip.grocery_trip_items || [];
+        
+        for (const item of tripItems) {
+          const actualPrice = actualPrices[item.id];
+          await GroceryService.recordPrice(
+            item.item_id,
+            actualPrice,
+            store,
+            location,
+            user.id,
+            'high'
+          );
+        }
+        
+        // Complete the trip
+        const actualTotal = calculateStoreActual(trip);
+        await GroceryService.completeGroceryTrip(trip.id, actualTotal);
+      }
+      
+      Alert.alert(
+        'Shopping Trip Complete!',
+        `Your multi-store shopping trip has been saved. ${calculateDifference() >= 0 ? 'You spent' : 'You saved'} K${Math.abs(calculateDifference())}.`,
+        [
+          { text: 'OK', onPress: () => router.push('/(tabs)/dashboard') }
+        ]
+      );
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to save shopping trip');
+    } finally {
+      setSaving(false);
+    }
   };
   
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.content}>
-        <View style={styles.header}>
-          <ThemedText style={styles.title}>Multi-Store Shopping</ThemedText>
-          <View style={styles.placeholder} />
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <ScrollView className="flex-1 px-5 py-6">
+        <View className="flex-row items-center justify-between mb-5">
+          <ThemedText className="text-text text-2xl font-bold">Multi-Store Shopping</ThemedText>
+          <View className="w-6" />
         </View>
         
-        <Card style={styles.locationCard}>
-          <View style={styles.locationInfo}>
-            <IconSymbol size={20} name="cart.fill" color="#0066CC" />
-            <ThemedText style={styles.locationText}>
-              {locationName} • {multiStoreBudget.stores.length} stores
+        <View className="bg-surface rounded-2xl p-4 border border-border mb-5">
+          <View className="flex-row items-center">
+            <IconSymbol size={20} name="cart.fill" color="#14b8a6" />
+            <ThemedText className="text-text text-base font-medium ml-2">
+              {locationName} • {trips.length} stores
             </ThemedText>
           </View>
-        </Card>
+        </View>
         
         {/* Store Navigation */}
-        <View style={styles.storeNavigation}>
+        <View className="flex-row items-center justify-between mb-4">
           <TouchableOpacity
             onPress={goToPreviousStore}
             disabled={currentStoreIndex === 0}
-            style={[styles.navButton, currentStoreIndex === 0 && styles.disabledNav]}
+            className={`p-2.5 rounded-lg bg-surface ${currentStoreIndex === 0 ? 'opacity-50' : ''}`}
           >
-            <IconSymbol size={20} name="chevron.right" color={currentStoreIndex === 0 ? '#666' : '#FFFFFF'} />
+            <IconSymbol size={20} name="chevron.left" color={currentStoreIndex === 0 ? '#64748b' : '#ffffff'} />
           </TouchableOpacity>
           
-          <View style={styles.storeIndicator}>
-            <ThemedText style={styles.storeIndicatorText}>
-              Store {currentStoreIndex + 1} of {multiStoreBudget.stores.length}
-            </ThemedText>
-            <ThemedText style={styles.currentStoreName}>
-              {getStoreName(currentStore)}
-            </ThemedText>
+          <View className="items-center flex-1">
+            <ThemedText className="text-text-secondary text-xs">Store {currentStoreIndex + 1} of {trips.length}</ThemedText>
+            <ThemedText className="text-text text-base font-semibold">{getStoreName(currentStore)}</ThemedText>
           </View>
           
           <TouchableOpacity
             onPress={goToNextStore}
-            disabled={currentStoreIndex === multiStoreBudget.stores.length - 1}
-            style={[styles.navButton, currentStoreIndex === multiStoreBudget.stores.length - 1 && styles.disabledNav]}
+            disabled={currentStoreIndex === trips.length - 1}
+            className={`p-2.5 rounded-lg bg-surface ${currentStoreIndex === trips.length - 1 ? 'opacity-50' : ''}`}
           >
-            <IconSymbol size={20} name="chevron.right" color={currentStoreIndex === multiStoreBudget.stores.length - 1 ? '#666' : '#FFFFFF'} />
+            <IconSymbol size={20} name="chevron.right" color={currentStoreIndex === trips.length - 1 ? '#64748b' : '#ffffff'} />
           </TouchableOpacity>
         </View>
         
         {/* Store Progress */}
-        <View style={styles.progressBar}>
-          {multiStoreBudget.stores.map((storeId, index) => (
+        <View className="flex-row h-1 bg-border rounded-sm mb-5 overflow-hidden">
+          {trips.map((trip, index) => (
             <View
-              key={storeId}
-              style={[
-                styles.progressSegment,
-                index <= currentStoreIndex && styles.completedSegment
-              ]}
+              key={trip.id}
+              className={`flex-1 mx-0.5 rounded-sm ${index <= currentStoreIndex ? 'bg-success' : 'bg-border'}`}
             />
           ))}
         </View>
         
         {/* Current Store Items */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <ThemedText style={styles.sectionTitle}>Items at {getStoreName(currentStore)}</ThemedText>
+        <View className="mb-5">
+          <View className="flex-row items-center justify-between mb-4">
+            <ThemedText className="text-text text-lg font-semibold">Items at {getStoreName(currentStore)}</ThemedText>
             <TouchableOpacity onPress={() => setShowAddItem(true)}>
-              <IconSymbol size={20} name="plus.circle.fill" color="#10B981" />
+              <IconSymbol size={20} name="plus.circle.fill" color="#10b981" />
             </TouchableOpacity>
           </View>
           
-          {currentStoreItems.map(item => (
-            <Card key={item.id} style={styles.itemCard}>
-              <View style={styles.itemHeader}>
-                <View style={styles.itemInfo}>
-                  <ThemedText style={styles.itemName}>{item.item.name}</ThemedText>
-                  <ThemedText style={styles.itemUnit}>{item.item.unit}</ThemedText>
+          {currentStoreItems.map((item: any) => (
+            <View key={item.id} className="bg-surface rounded-2xl p-5 border border-border mb-4">
+              <View className="mb-4">
+                <View className="flex-1">
+                  <ThemedText className="text-text text-lg font-semibold mb-1">{item.grocery_items?.name || 'Unknown'}</ThemedText>
+                  <ThemedText className="text-text-secondary text-sm">{item.grocery_items?.unit || ''}</ThemedText>
                 </View>
               </View>
               
-              <View style={styles.priceRow}>
-                <View style={styles.priceColumn}>
-                  <ThemedText style={styles.priceLabel}>Suggested:</ThemedText>
-                  <ThemedText style={styles.suggestedPrice}>K{item.suggestedPrice}</ThemedText>
+              <View className="flex-row justify-between">
+                <View className="flex-1 items-center">
+                  <ThemedText className="text-text-secondary text-sm mb-1">Suggested:</ThemedText>
+                  <ThemedText className="text-success text-base font-semibold">K{item.suggested_price}</ThemedText>
                 </View>
                 
-                <View style={styles.priceColumn}>
-                  <ThemedText style={styles.priceLabel}>Actual:</ThemedText>
+                <View className="flex-1 items-center">
+                  <ThemedText className="text-text-secondary text-sm mb-1">Actual:</ThemedText>
                   <TextInput
-                    style={styles.actualInput}
+                    className="bg-background text-text px-3 py-2 rounded-lg text-base border border-border text-center min-w-20"
                     placeholder="K0"
-                    placeholderTextColor="#666"
-                    value={actualPrices[item.id] || ''}
+                    placeholderTextColor="#64748b"
+                    value={actualPrices[item.id]?.toString() || ''}
                     onChangeText={(text) => updateActualPrice(item.id, text)}
                     keyboardType="numeric"
                   />
                 </View>
               </View>
-            </Card>
+            </View>
           ))}
           
           {/* Store Summary */}
-          <Card variant="elevated" style={styles.storeSummaryCard}>
-            <View style={styles.summaryRow}>
-              <ThemedText style={styles.summaryLabel}>Store Total:</ThemedText>
-              <ThemedText style={styles.storeTotal}>
-                K{calculateStoreActual(currentStore)}
+          <View className="bg-surface rounded-2xl p-4 border border-border">
+            <View className="flex-row justify-between items-center">
+              <ThemedText className="text-text text-base font-medium">Store Total:</ThemedText>
+              <ThemedText className="text-success text-lg font-semibold">
+                K{calculateStoreActual(currentTrip)}
               </ThemedText>
             </View>
-          </Card>
+          </View>
         </View>
         
         {/* Overall Summary */}
-        <Card variant="elevated" style={styles.overallSummaryCard}>
-          <ThemedText style={styles.overallTitle}>Overall Shopping Summary</ThemedText>
+        <View className="bg-surface rounded-2xl p-5 border border-border mb-5">
+          <ThemedText className="text-text text-lg font-semibold mb-4 text-center">Overall Shopping Summary</ThemedText>
           
-          {multiStoreBudget.stores.map(storeId => (
-            <View key={storeId} style={styles.storeSummaryRow}>
-              <ThemedText style={styles.storeSummaryName}>{getStoreName(storeId)}</ThemedText>
-              <ThemedText style={styles.storeSummaryAmount}>
-                K{calculateStoreActual(storeId)}
+          {trips.map(trip => (
+            <View key={trip.id} className="flex-row justify-between mb-2">
+              <ThemedText className="text-text text-sm">{getStoreName(trip.store)}</ThemedText>
+              <ThemedText className="text-text text-sm font-medium">
+                K{calculateStoreActual(trip)}
               </ThemedText>
             </View>
           ))}
           
-          <View style={[styles.summaryRow, styles.totalRow]}>
-            <ThemedText style={styles.summaryLabel}>Total Spent:</ThemedText>
-            <ThemedText style={styles.totalAmount}>K{calculateTotalActual()}</ThemedText>
+          <View className="flex-row justify-between items-center border-t border-border pt-2 mt-1">
+            <ThemedText className="text-text text-base font-medium">Total Spent:</ThemedText>
+            <ThemedText className="text-text text-xl font-bold">K{calculateTotalActual()}</ThemedText>
           </View>
           
-          <View style={styles.summaryRow}>
-            <ThemedText style={styles.summaryLabel}>Budget:</ThemedText>
-            <ThemedText style={styles.budgetAmount}>K{calculateTotalEstimated()}</ThemedText>
+          <View className="flex-row justify-between items-center mt-2">
+            <ThemedText className="text-text text-base font-medium">Budget:</ThemedText>
+            <ThemedText className="text-success text-base font-semibold">K{calculateTotalEstimated()}</ThemedText>
           </View>
           
-          <View style={[styles.summaryRow, styles.differenceRow]}>
-            <ThemedText style={styles.summaryLabel}>Difference:</ThemedText>
-            <ThemedText style={[
-              styles.difference,
-              calculateDifference() >= 0 ? styles.overspend : styles.underspend
-            ]}>
+          <View className="flex-row justify-between items-center mt-3">
+            <ThemedText className="text-text text-base font-medium">Difference:</ThemedText>
+            <ThemedText className={`text-lg font-bold ${calculateDifference() >= 0 ? 'text-error' : 'text-success'}`}>
               {calculateDifference() >= 0 ? '+' : ''}K{calculateDifference()}
             </ThemedText>
           </View>
-        </Card>
+        </View>
         
         {/* Add Item Modal */}
         {showAddItem && (
-          <Card style={styles.addItemModal}>
-            <ThemedText style={styles.modalTitle}>Add Missing Item</ThemedText>
+          <View className="bg-surface rounded-2xl p-5 border border-border mb-5">
+            <ThemedText className="text-text text-lg font-semibold mb-4 text-center">Add Missing Item</ThemedText>
             <TextInput
-              style={styles.modalInput}
+              className="bg-background text-text px-4 py-4 rounded-xl text-base border border-border mb-4"
               placeholder="Enter item name..."
-              placeholderTextColor="#666"
+              placeholderTextColor="#64748b"
               value={newItemName}
               onChangeText={setNewItemName}
             />
-            <View style={styles.modalActions}>
+            <View className="flex-row justify-between">
               <Button
                 title="Cancel"
                 onPress={() => setShowAddItem(false)}
                 variant="outline"
                 size="small"
+                className="flex-1 mr-2"
               />
               <Button
                 title="Add Item"
                 onPress={addMissingItem}
                 size="small"
+                className="flex-1 ml-2"
               />
             </View>
-          </Card>
+          </View>
         )}
         
-        <View style={styles.spacer} />
+        <View className="h-5" />
         
         <Button
-          title="Complete Shopping Trip →"
+          title={saving ? "Saving..." : "Complete Shopping Trip →"}
           onPress={saveShoppingTrip}
           size="large"
+          className="w-full"
+          disabled={saving}
         />
-      </ThemedView>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-  },
-  content: {
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  placeholder: {
-    width: 24,
-  },
-  locationCard: {
-    padding: 15,
-    marginBottom: 20,
-  },
-  locationInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  locationText: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 8,
-  },
-  storeNavigation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  navButton: {
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: '#2A2A2A',
-  },
-  disabledNav: {
-    opacity: 0.5,
-  },
-  storeIndicator: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  storeIndicatorText: {
-    fontSize: 12,
-    opacity: 0.7,
-    color: '#FFFFFF',
-  },
-  currentStoreName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  progressBar: {
-    flexDirection: 'row',
-    height: 4,
-    backgroundColor: '#404040',
-    borderRadius: 2,
-    marginBottom: 20,
-    overflow: 'hidden',
-  },
-  progressSegment: {
-    flex: 1,
-    backgroundColor: '#404040',
-    marginHorizontal: 1,
-  },
-  completedSegment: {
-    backgroundColor: '#10B981',
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  itemCard: {
-    padding: 20,
-    marginBottom: 15,
-  },
-  itemHeader: {
-    marginBottom: 15,
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  itemName: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  itemUnit: {
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  priceColumn: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  priceLabel: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 4,
-  },
-  suggestedPrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#10B981',
-  },
-  actualInput: {
-    backgroundColor: '#2A2A2A',
-    color: '#FFFFFF',
-    padding: 10,
-    borderRadius: 8,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#404040',
-    textAlign: 'center',
-    minWidth: 80,
-  },
-  storeSummaryCard: {
-    padding: 15,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  summaryLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#FFFFFF',
-  },
-  storeTotal: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#10B981',
-  },
-  overallSummaryCard: {
-    padding: 20,
-    marginBottom: 20,
-  },
-  overallTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  storeSummaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  storeSummaryName: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  storeSummaryAmount: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#FFFFFF',
-  },
-  totalRow: {
-    borderTopWidth: 1,
-    borderTopColor: '#404040',
-    paddingTop: 8,
-    marginTop: 4,
-  },
-  totalAmount: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  budgetAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#10B981',
-  },
-  differenceRow: {
-    marginTop: 8,
-  },
-  difference: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  overspend: {
-    color: '#EF4444',
-  },
-  underspend: {
-    color: '#10B981',
-  },
-  addItemModal: {
-    padding: 20,
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  modalInput: {
-    backgroundColor: '#2A2A2A',
-    color: '#FFFFFF',
-    padding: 15,
-    borderRadius: 8,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#404040',
-    marginBottom: 15,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  spacer: {
-    height: 20,
-  },
-});

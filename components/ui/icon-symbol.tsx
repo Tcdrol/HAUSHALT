@@ -43,6 +43,7 @@ const EXTENDED_MAPPING = {
   'arrow.up.square.fill': 'logout',
   'info.circle.fill': 'info',
   'chevron.right': 'chevron-right',
+  'chevron.left': 'chevron-left',
   'bell.fill': 'notifications',
   'lock.fill': 'lock',
   'key.fill': 'vpn-key',
@@ -54,6 +55,11 @@ const EXTENDED_MAPPING = {
   'chevron.up': 'expand-less',
   'chevron.down': 'expand-more',
   'minus.circle.fill': 'remove-circle',
+  'fork.knife': 'restaurant',
+  'gamecontroller.fill': 'sports-esports',
+  'heart.fill': 'favorite',
+  'bag.fill': 'shopping-bag',
+  'book.fill': 'menu-book',
 } as const;
 
 type IconSymbolName = keyof typeof EXTENDED_MAPPING;

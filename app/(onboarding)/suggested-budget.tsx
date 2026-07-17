@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/app-context';
 import { BudgetService } from '@/lib/services/budget-service';
@@ -134,75 +133,75 @@ export default function SuggestedBudgetScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.content}>
-        <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <ScrollView className="flex-1 px-5 py-6">
+        <View className="mb-8">
+          <ThemedText className="text-text text-3xl font-bold mb-2">
             Your Suggested Budget
           </ThemedText>
-          <ThemedText style={styles.subtitle}>
+          <ThemedText className="text-text-secondary text-base mb-2">
             Based on {userProfile.userType.replace('_', ' ')} in {userProfile.location.charAt(0).toUpperCase() + userProfile.location.slice(1)}
           </ThemedText>
-          <ThemedText style={styles.incomeText}>
+          <ThemedText className="text-success text-lg font-semibold mb-5">
             Monthly Income: {formatCurrency(userProfile.monthlyIncome)}
           </ThemedText>
         </View>
         
-        <Card style={styles.summaryCard}>
-          <View style={styles.summaryHeader}>
-            <IconSymbol size={20} name="dollarsign.circle.fill" color="#10B981" />
-            <ThemedText style={styles.summaryTitle}>Budget Breakdown</ThemedText>
+        <View className="bg-surface rounded-2xl p-5 border border-border mb-5">
+          <View className="flex-row items-center mb-5">
+            <IconSymbol size={20} name="dollarsign.circle.fill" color="#10b981" />
+            <ThemedText className="text-text text-lg font-bold ml-2">Budget Breakdown</ThemedText>
           </View>
           
           {budgetCategories.map((category, index) => (
-            <View key={index} style={styles.categoryItem}>
-              <View style={styles.categoryHeader}>
-                <View style={styles.categoryInfo}>
-                  <IconSymbol size={20} name={category.icon} color="#FFFFFF" />
-                  <ThemedText style={styles.categoryName}>{category.name}</ThemedText>
+            <View key={index} className="mb-5">
+              <View className="flex-row justify-between items-center mb-2">
+                <View className="flex-row items-center flex-1">
+                  <IconSymbol size={20} name={category.icon} color="#ffffff" />
+                  <ThemedText className="text-text text-base font-semibold ml-2">{category.name}</ThemedText>
                 </View>
-                <ThemedText style={styles.categoryAmount}>{formatCurrency(category.amount)}</ThemedText>
+                <ThemedText className="text-text text-base font-semibold">{formatCurrency(category.amount)}</ThemedText>
               </View>
-              <View style={styles.progressBar}>
-                <View style={[
-                  styles.progressFill,
-                  { width: `${category.percentage}%` }
-                ]} />
+              <View className="h-2 bg-border rounded-full mb-1 overflow-hidden">
+                <View 
+                  className="h-full bg-primary rounded-full"
+                  style={{ width: `${category.percentage}%` }}
+                />
               </View>
-              <ThemedText style={styles.percentageText}>{category.percentage}% of income</ThemedText>
+              <ThemedText className="text-text-secondary text-sm text-right">{category.percentage}% of income</ThemedText>
             </View>
           ))}
           
-          <View style={styles.totalRow}>
-            <ThemedText style={styles.totalLabel}>Total Budget</ThemedText>
-            <ThemedText style={styles.totalAmount}>
+          <View className="flex-row justify-between items-center pt-4 border-t border-border mt-3">
+            <ThemedText className="text-text text-lg font-bold">Total Budget</ThemedText>
+            <ThemedText className="text-success text-lg font-bold">
               {formatCurrency(budgetCategories.reduce((sum, cat) => sum + cat.amount, 0))}
             </ThemedText>
           </View>
-        </Card>
+        </View>
         
-        <View style={styles.tipsCard}>
-          <View style={styles.tipsHeader}>
-            <IconSymbol size={20} name="lightbulb.fill" color="#F59E0B" />
-            <ThemedText style={styles.tipsTitle}>Budget Tips</ThemedText>
+        <View className="bg-surface rounded-2xl p-5 border border-border mb-5">
+          <View className="flex-row items-center mb-4">
+            <IconSymbol size={20} name="lightbulb.fill" color="#f59e0b" />
+            <ThemedText className="text-text text-lg font-bold ml-2">Budget Tips</ThemedText>
           </View>
-          <ThemedText style={styles.tipText}>
+          <ThemedText className="text-text opacity-80 text-sm mb-2 leading-5">
             • Track your expenses regularly to stay within budget
           </ThemedText>
-          <ThemedText style={styles.tipText}>
+          <ThemedText className="text-text opacity-80 text-sm mb-2 leading-5">
             • Adjust categories as needed based on your actual spending
           </ThemedText>
-          <ThemedText style={styles.tipText}>
-            • Set up alerts to notify when you&apos;re approaching limits
+          <ThemedText className="text-text opacity-80 text-sm mb-2 leading-5">
+            • Set up alerts to notify when you're approaching limits
           </ThemedText>
         </View>
         
-        <View style={styles.buttonRow}>
+        <View className="flex-row gap-4 mt-5">
           <Button
             title="Adjust"
             onPress={handleAdjust}
             size="large"
-            style={styles.secondaryButton}
+            className="flex-1"
             variant="outline"
           />
           
@@ -210,158 +209,11 @@ export default function SuggestedBudgetScreen() {
             title={loading ? "Saving..." : "Accept Budget"}
             onPress={handleAccept}
             size="large"
-            style={styles.primaryButton}
+            className="flex-1"
             disabled={loading}
           />
         </View>
-      </ThemedView>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  header: {
-    marginBottom: 30,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#FFFFFF',
-  },
-  subtitle: {
-    fontSize: 16,
-    opacity: 0.8,
-    marginBottom: 10,
-    color: '#FFFFFF',
-  },
-  incomeText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#10B981',
-    marginBottom: 20,
-  },
-  summaryCard: {
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#404040',
-    backgroundColor: '#2A2A2A',
-    marginBottom: 20,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginLeft: 8,
-  },
-  categoryItem: {
-    marginBottom: 20,
-  },
-  categoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  categoryInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  categoryName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 8,
-  },
-  categoryAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#404040',
-    borderRadius: 4,
-    marginBottom: 4,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#0066CC',
-    borderRadius: 4,
-  },
-  percentageText: {
-    fontSize: 14,
-    opacity: 0.7,
-    textAlign: 'right',
-    color: '#FFFFFF',
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#404040',
-    marginTop: 10,
-  },
-  totalLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  totalAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#10B981',
-  },
-  tipsCard: {
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#404040',
-    backgroundColor: '#2A2A2A',
-    marginBottom: 20,
-  },
-  tipsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  tipsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginLeft: 8,
-  },
-  tipText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.8,
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 15,
-    marginTop: 20,
-  },
-  primaryButton: {
-    flex: 1,
-  },
-  secondaryButton: {
-    flex: 1,
-  },
-});

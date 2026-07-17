@@ -444,6 +444,169 @@ export class GroupService {
     }
   }
 
+  // Get pending invites for a user
+  static async getPendingInvites(
+    userEmail: string
+  ): Promise<{ success: boolean; data?: any[]; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('group_invitations')
+        .select('*, groups(name)')
+        .eq('invited_email', userEmail)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, data };
+    } catch (error: any) {
+      console.error('Get pending invites error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to get pending invites' 
+      };
+    }
+  }
+
+  // Accept group invite
+  static async acceptGroupInvite(
+    inviteId: string,
+    userId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Get invite details
+      const { data: invite, error: inviteError } = await supabase
+        .from('group_invitations')
+        .select('*')
+        .eq('id', inviteId)
+        .single();
+
+      if (inviteError || !invite) {
+        throw new Error('Invite not found');
+      }
+
+      // Add user to group
+      const { error: memberError } = await supabase
+        .from('group_members')
+        .insert({
+          group_id: invite.group_id,
+          user_id: userId,
+          role: 'member',
+        });
+
+      if (memberError) {
+        throw memberError;
+      }
+
+      // Update invite status
+      const { error: updateError } = await supabase
+        .from('group_invitations')
+        .update({ status: 'accepted' })
+        .eq('id', inviteId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Accept invite error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to accept invite' 
+      };
+    }
+  }
+
+  // Decline group invite
+  static async declineGroupInvite(
+    inviteId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase
+        .from('group_invitations')
+        .update({ status: 'declined' })
+        .eq('id', inviteId);
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Decline invite error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to decline invite' 
+      };
+    }
+  }
+
+  // Invite member by email
+  static async inviteMemberByEmail(
+    groupId: string,
+    invitedEmail: string,
+    invitedBy: string
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      // Check if user exists with this email
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('id, email')
+        .eq('email', invitedEmail)
+        .single();
+
+      if (profileError || !profile) {
+        return {
+          success: false,
+          error: 'User with this email not found'
+        };
+      }
+
+      // Check if already a member
+      const { data: existingMember } = await supabase
+        .from('group_members')
+        .select('id')
+        .eq('group_id', groupId)
+        .eq('user_id', profile.id)
+        .single();
+
+      if (existingMember) {
+        return {
+          success: false,
+          error: 'User is already a member of this group'
+        };
+      }
+
+      // Create invitation
+      const { data, error } = await supabase
+        .from('group_invitations')
+        .insert({
+          group_id: groupId,
+          invited_email: invitedEmail,
+          invited_user_id: profile.id,
+          invited_by: invitedBy,
+          status: 'pending',
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, data };
+    } catch (error: any) {
+      console.error('Invite member error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to send invitation' 
+      };
+    }
+  }
+
   // Subscribe to group changes
   static subscribeToGroup(
     groupId: string, 

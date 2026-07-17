@@ -43,13 +43,14 @@ export class ProfileService {
         .from('user_profiles')
         .select('*')
         .eq('user_id', userId)
-        .maybeSingle();
+        .limit(1);
 
       if (error) {
         throw error;
       }
 
-      return { success: true, data };
+      // Return first profile if multiple exist, or null if none
+      return { success: true, data: data && data.length > 0 ? data[0] : null };
     } catch (error: any) {
       console.error('Get profile error:', error);
       return { 
@@ -201,13 +202,13 @@ export class ProfileService {
         .from('user_profiles')
         .select('*')
         .eq('email', email)
-        .maybeSingle();
+        .limit(1);
 
       if (error) {
         throw error;
       }
 
-      return { success: true, data };
+      return { success: true, data: data && data.length > 0 ? data[0] : null };
     } catch (error: any) {
       console.error('Get user by email error:', error);
       return { 

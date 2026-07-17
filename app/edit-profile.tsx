@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/app-context';
@@ -16,13 +15,18 @@ export default function EditProfileScreen() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    fullName: string;
+    email: string;
+    userType: 'student' | 'household' | 'sharing_roommates';
+    location: 'kitwe' | 'lusaka' | 'other';
+    householdSize: number;
+  }>({
     fullName: '',
     email: '',
     userType: 'student',
     location: 'kitwe',
     householdSize: 1,
-    accommodationType: 'hostel',
   });
 
   // Load user profile from Supabase
@@ -44,7 +48,6 @@ export default function EditProfileScreen() {
           userType: result.data.user_type || 'student',
           location: result.data.location || 'kitwe',
           householdSize: result.data.household_size || 1,
-          accommodationType: result.data.accommodation_type || 'hostel',
         });
       } else {
         // Use user metadata if profile doesn't exist yet
@@ -69,17 +72,13 @@ export default function EditProfileScreen() {
 
     setSaving(true);
     try {
-      const result = await ProfileService.upsertProfile(
-        user.id,
-        {
-          full_name: formData.fullName,
-          email: formData.email,
-          user_type: formData.userType as 'student' | 'household' | 'sharing_roommates',
-          location: formData.location as 'kitwe' | 'lusaka' | 'other',
-          household_size: formData.householdSize,
-          accommodation_type: formData.accommodationType as 'hostel' | 'apartment' | 'house' | 'shared',
-        }
-      );
+      const result = await ProfileService.upsertProfile(user.id, {
+        full_name: formData.fullName,
+        email: formData.email,
+        user_type: formData.userType,
+        location: formData.location,
+        household_size: formData.householdSize,
+      });
 
       if (result.success) {
         Alert.alert(
@@ -102,17 +101,17 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.content}>
-        <View style={styles.header}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <ScrollView className="flex-1 px-5 py-6">
+        <View className="flex-row justify-between items-center mb-6">
           <TouchableOpacity onPress={() => router.back()}>
-            <IconSymbol size={24} name="chevron.right" color="#0066CC" />
+            <IconSymbol size={24} name="chevron.right" color="#14b8a6" />
           </TouchableOpacity>
-          <ThemedText style={styles.title}>Edit Profile</ThemedText>
-          <View style={styles.placeholder} />
+          <ThemedText className="text-text text-3xl font-bold">Edit Profile</ThemedText>
+          <View className="w-6" />
         </View>
         
-        <Card style={styles.formCard}>
+        <View className="bg-surface rounded-2xl p-5 border border-border">
           <Input
             label="Full Name"
             placeholder="Enter your full name"
@@ -129,45 +128,33 @@ export default function EditProfileScreen() {
             autoCapitalize="none"
           />
           
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>User Type</ThemedText>
-            <View style={styles.options}>
+          <View className="mt-6">
+            <ThemedText className="text-text text-lg font-bold mb-4">User Type</ThemedText>
+            <View className="flex-row flex-wrap gap-2.5">
               {['student', 'household', 'sharing_roommates'].map((type) => (
                 <TouchableOpacity
                   key={type}
-                  style={[
-                    styles.option,
-                    formData.userType === type && styles.selectedOption
-                  ]}
-                  onPress={() => setFormData({...formData, userType: type})}
+                  className={`py-3 px-4 rounded-lg border min-w-28 items-center ${formData.userType === type ? 'bg-primary border-primary' : 'border-border'}`}
+                  onPress={() => setFormData({...formData, userType: type as 'student' | 'household' | 'sharing_roommates'})}
                 >
-                  <ThemedText style={[
-                    styles.optionText,
-                    formData.userType === type && styles.selectedOptionText
-                  ]}>
-                    {type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  <ThemedText className={`text-sm ${formData.userType === type ? 'text-white font-semibold' : 'text-text'}`}>
+                    {type.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
                   </ThemedText>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
           
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Location</ThemedText>
-            <View style={styles.options}>
+          <View className="mt-6">
+            <ThemedText className="text-text text-lg font-bold mb-4">Location</ThemedText>
+            <View className="flex-row flex-wrap gap-2.5">
               {['kitwe', 'lusaka'].map((location) => (
                 <TouchableOpacity
                   key={location}
-                  style={[
-                    styles.option,
-                    formData.location === location && styles.selectedOption
-                  ]}
-                  onPress={() => setFormData({...formData, location})}
+                  className={`py-3 px-4 rounded-lg border min-w-28 items-center ${formData.location === location ? 'bg-primary border-primary' : 'border-border'}`}
+                  onPress={() => setFormData({...formData, location: location as 'kitwe' | 'lusaka'})}
                 >
-                  <ThemedText style={[
-                    styles.optionText,
-                    formData.location === location && styles.selectedOptionText
-                  ]}>
+                  <ThemedText className={`text-sm ${formData.location === location ? 'text-white font-semibold' : 'text-text'}`}>
                     {location.charAt(0).toUpperCase() + location.slice(1)}
                   </ThemedText>
                 </TouchableOpacity>
@@ -175,23 +162,17 @@ export default function EditProfileScreen() {
             </View>
           </View>
           
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Accommodation Type</ThemedText>
-            <View style={styles.options}>
-              {['hostel', 'apartment', 'house', 'shared'].map((type) => (
+          <View className="mt-6">
+            <ThemedText className="text-text text-lg font-bold mb-4">Household Size</ThemedText>
+            <View className="flex-row flex-wrap gap-2.5">
+              {[1, 2, 3, 4, 5].map((size) => (
                 <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.option,
-                    formData.accommodationType === type && styles.selectedOption
-                  ]}
-                  onPress={() => setFormData({...formData, accommodationType: type})}
+                  key={size}
+                  className={`py-3 px-4 rounded-lg border min-w-28 items-center ${formData.householdSize === size ? 'bg-primary border-primary' : 'border-border'}`}
+                  onPress={() => setFormData({...formData, householdSize: size})}
                 >
-                  <ThemedText style={[
-                    styles.optionText,
-                    formData.accommodationType === type && styles.selectedOptionText
-                  ]}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  <ThemedText className={`text-sm ${formData.householdSize === size ? 'text-white font-semibold' : 'text-text'}`}>
+                    {size} {size === 1 ? 'person' : 'people'}
                   </ThemedText>
                 </TouchableOpacity>
               ))}
@@ -202,77 +183,11 @@ export default function EditProfileScreen() {
             title={saving ? "Saving..." : loading ? "Loading..." : "Save Changes"}
             onPress={handleSave}
             size="large"
-            style={styles.saveButton}
+            className="w-full mt-8"
             disabled={loading || saving}
           />
-        </Card>
-      </ThemedView>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-  },
-  content: {
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 25,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  placeholder: {
-    width: 24,
-  },
-  formCard: {
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#404040',
-  },
-  section: {
-    marginTop: 25,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 15,
-  },
-  options: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  option: {
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#404040',
-    minWidth: 100,
-    alignItems: 'center',
-  },
-  selectedOption: {
-    backgroundColor: '#0066CC',
-    borderColor: '#0066CC',
-  },
-  optionText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  selectedOptionText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  saveButton: {
-    marginTop: 30,
-  },
-});

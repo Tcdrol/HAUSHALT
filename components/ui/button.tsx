@@ -1,6 +1,13 @@
+import { cn } from '@/utils/cn';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, ViewStyle, TextStyle, ActivityIndicator, View } from 'react-native';
-import { useThemeColor } from '@/hooks/use-theme-color';
+import {
+    ActivityIndicator,
+    Text,
+    TextStyle,
+    TouchableOpacity,
+    View,
+    ViewStyle,
+} from 'react-native';
 
 interface ButtonProps {
   title: string;
@@ -11,6 +18,8 @@ interface ButtonProps {
   loading?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  className?: string;
+  textClassName?: string;
   icon?: React.ReactNode;
 }
 
@@ -23,158 +32,69 @@ export function Button({
   loading = false,
   style,
   textStyle,
-  icon
+  className,
+  textClassName,
+  icon,
 }: ButtonProps) {
-  const backgroundColor = useThemeColor({}, 'primary');
-  const textSecondary = useThemeColor({}, 'textSecondary');
-  const border = useThemeColor({}, 'border');
-  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
-
-  const getButtonStyle = (): ViewStyle => {
-    const baseStyle: ViewStyle = {
-      borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexDirection: 'row',
-    };
-
-    switch (variant) {
-      case 'primary':
-        return {
-          ...baseStyle,
-          backgroundColor: disabled ? '#ccc' : backgroundColor,
-        };
-      case 'secondary':
-        return {
-          ...baseStyle,
-          backgroundColor: backgroundSecondary,
-          borderWidth: 1,
-          borderColor: disabled ? '#ccc' : backgroundColor,
-        };
-      case 'outline':
-        return {
-          ...baseStyle,
-          backgroundColor: 'transparent',
-          borderWidth: 1,
-          borderColor: disabled ? '#ccc' : backgroundColor,
-        };
-      case 'ghost':
-        return {
-          ...baseStyle,
-          backgroundColor: 'transparent',
-        };
-      default:
-        return {
-          ...baseStyle,
-          backgroundColor: disabled ? '#ccc' : backgroundColor,
-        };
-    }
+  const variantStyles = {
+    primary: disabled
+      ? 'bg-gray-300'
+      : 'bg-primary',
+    secondary: 'bg-background-secondary border border-primary',
+    outline: 'bg-transparent border border-primary',
+    ghost: 'bg-transparent',
   };
 
-  const getTextStyle = (): TextStyle => {
-    const baseStyle: TextStyle = {
-      fontWeight: '600',
-    };
-
-    switch (variant) {
-      case 'primary':
-        return {
-          ...baseStyle,
-          color: '#ffffff',
-        };
-      case 'secondary':
-      case 'outline':
-        return {
-          ...baseStyle,
-          color: disabled ? '#ccc' : backgroundColor,
-        };
-      case 'ghost':
-        return {
-          ...baseStyle,
-          color: disabled ? '#ccc' : backgroundColor,
-        };
-      default:
-        return {
-          ...baseStyle,
-          color: '#ffffff',
-        };
-    }
+  const textStyles = {
+    primary: 'text-white',
+    secondary: disabled ? 'text-gray-300' : 'text-primary',
+    outline: disabled ? 'text-gray-300' : 'text-primary',
+    ghost: disabled ? 'text-gray-300' : 'text-primary',
   };
 
-  const getSizeStyle = (): ViewStyle => {
-    switch (size) {
-      case 'small':
-        return {
-          paddingHorizontal: 16,
-          paddingVertical: 8,
-          minHeight: 36,
-        };
-      case 'medium':
-        return {
-          paddingHorizontal: 24,
-          paddingVertical: 12,
-          minHeight: 44,
-        };
-      case 'large':
-        return {
-          paddingHorizontal: 32,
-          paddingVertical: 16,
-          minHeight: 52,
-        };
-      default:
-        return {
-          paddingHorizontal: 24,
-          paddingVertical: 12,
-          minHeight: 44,
-        };
-    }
+  const sizeStyles = {
+    small: 'px-4 py-2 min-h-[36px]',
+    medium: 'px-6 py-3 min-h-[44px]',
+    large: 'px-8 py-4 min-h-[52px]',
   };
 
-  const getTextSize = (): TextStyle => {
-    switch (size) {
-      case 'small':
-        return { fontSize: 14 };
-      case 'medium':
-        return { fontSize: 16 };
-      case 'large':
-        return { fontSize: 18 };
-      default:
-        return { fontSize: 16 };
-    }
+  const textSizeStyles = {
+    small: 'text-sm',
+    medium: 'text-base',
+    large: 'text-lg',
   };
-
-  const textStyles = [
-    styles.text,
-    getTextStyle(),
-    getTextSize(),
-    textStyle
-  ];
-  
-  if (icon) {
-    textStyles.push({ marginLeft: 8 });
-  }
 
   return (
     <TouchableOpacity
-      style={[
-        styles.button,
-        getButtonStyle(),
-        getSizeStyle(),
-        style,
-      ]}
+      className={cn(
+        'rounded-xl items-center justify-center flex-row',
+        variantStyles[variant],
+        sizeStyles[size],
+        className
+      )}
+      style={style}
       onPress={onPress}
       disabled={disabled || loading}
       activeOpacity={0.8}
     >
       {loading ? (
-        <ActivityIndicator 
-          size="small" 
-          color={variant === 'primary' ? '#ffffff' : backgroundColor} 
+        <ActivityIndicator
+          size="small"
+          color={variant === 'primary' ? '#ffffff' : '#0a7ea4'}
         />
       ) : (
         <>
-          {icon && <View style={styles.icon}>{icon}</View>}
-          <Text style={textStyles}>
+          {icon && <View className="mr-1">{icon}</View>}
+          <Text
+            className={cn(
+              'font-semibold text-center',
+              textStyles[variant],
+              textSizeStyles[size],
+              icon && 'ml-2',
+              textClassName
+            )}
+            style={textStyle}
+          >
             {title}
           </Text>
         </>
@@ -182,18 +102,3 @@ export function Button({
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    borderRadius: 12,
-  },
-  text: {
-    textAlign: 'center',
-  },
-  textWithIcon: {
-    marginLeft: 8,
-  },
-  icon: {
-    marginRight: 4,
-  },
-});

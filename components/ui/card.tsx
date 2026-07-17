@@ -1,10 +1,12 @@
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { cn } from '@/utils/cn';
 import React from 'react';
-import { StyleSheet, View, ViewStyle, } from 'react-native';
-import { useThemeColor } from '@/hooks/use-theme-color';
+import { View, ViewStyle } from 'react-native';
 
 interface CardProps {
   children: React.ReactNode;
   style?: ViewStyle;
+  className?: string;
   variant?: 'default' | 'outlined' | 'elevated';
   padding?: 'none' | 'small' | 'medium' | 'large';
 }
@@ -12,76 +14,36 @@ interface CardProps {
 export function Card({
   children,
   style,
+  className,
   variant = 'default',
-  padding = 'medium'
+  padding = 'medium',
 }: CardProps) {
-  const backgroundColor = useThemeColor({}, 'card');
-  const border = useThemeColor({}, 'border');
-  const shadow = useThemeColor({}, 'shadow');
+  const colorScheme = useColorScheme();
 
-  const getCardStyle = (): ViewStyle => {
-    const baseStyle: ViewStyle = {
-      borderRadius: 12,
-      overflow: 'hidden',
-    };
-
-    switch (variant) {
-      case 'default':
-        return {
-          ...baseStyle,
-          backgroundColor,
-        };
-      case 'outlined':
-        return {
-          ...baseStyle,
-          backgroundColor,
-          borderWidth: 1,
-          borderColor: border,
-        };
-      case 'elevated':
-        return {
-          ...baseStyle,
-          backgroundColor,
-          shadowColor: shadow,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 3,
-        };
-      default:
-        return baseStyle;
-    }
+  const variantStyles = {
+    default: 'bg-card rounded-xl overflow-hidden',
+    outlined: 'bg-card rounded-xl overflow-hidden border border-border',
+    elevated: cn(
+      'bg-card rounded-xl overflow-hidden',
+      colorScheme === 'dark'
+        ? 'shadow-lg shadow-black/20'
+        : 'shadow-lg shadow-black/10'
+    ),
   };
 
-  const getPaddingStyle = (): ViewStyle => {
-    switch (padding) {
-      case 'none':
-        return { padding: 0 };
-      case 'small':
-        return { padding: 12 };
-      case 'medium':
-        return { padding: 20 };
-      case 'large':
-        return { padding: 24 };
-      default:
-        return { padding: 20 };
-    }
+  const paddingStyles = {
+    none: 'p-0',
+    small: 'p-3',
+    medium: 'p-5',
+    large: 'p-6',
   };
 
   return (
-    <View style={[
-      styles.card,
-      getCardStyle(),
-      getPaddingStyle(),
-      style,
-    ]}>
+    <View
+      className={cn(variantStyles[variant], paddingStyles[padding], className)}
+      style={style}
+    >
       {children}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    borderRadius: 12,
-  },
-});

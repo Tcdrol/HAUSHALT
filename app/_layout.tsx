@@ -1,3 +1,4 @@
+import "@/global.css";
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -7,7 +8,7 @@ import { AppProvider } from '@/contexts/app-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: '(tabs)/dashboard',
 };
 
 export default function RootLayout() {
@@ -21,10 +22,8 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="grocery-shopping" options={{ headerShown: false }} />
-          <Stack.Screen name="grocery-active" options={{ headerShown: false }} />
-          <Stack.Screen name="grocery-multi-budget" options={{ headerShown: false }} />
-          <Stack.Screen name="grocery-multi-shopping" options={{ headerShown: false }} />
+          <Stack.Screen name="make-budget" options={{ title: 'Make Budget', presentation: 'modal' }} />
+          <Stack.Screen name="execute-budget" options={{ title: 'Execute Budget', presentation: 'modal' }} />
           <Stack.Screen name="add-expense" options={{ title: 'Add Expense', presentation: 'modal' }} />
           <Stack.Screen name="group-detail" options={{ title: 'Group Details' }} />
           <Stack.Screen name="create-group" options={{ title: 'Create Group' }} />
